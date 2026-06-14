@@ -10,17 +10,17 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Field, FieldLabel, FieldError, FieldGroup } from "@/components/ui/field"
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-  SheetDescription,
-} from "@/components/ui/sheet"
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogDescription,
+} from "@/components/ui/dialog"
 import { useCreateInstagramTaggedRequest } from "../datahooks/useInstagramTagged"
 
 const dataItemSchema = z.object({
-  data_size: z.coerce.number().min(1, "Must be at least 1"),
+  data_size: z.number().min(1, "Must be at least 1"),
   identifier: z.string().min(1, "Required"),
   date_start: z.string().optional(),
   date_end: z.string().optional(),
@@ -46,12 +46,19 @@ const formSchema = z.object({
     .array(dataItemSchema)
     .min(1, "At least one item required")
     .max(50, "Maximum 50 items"),
-  extras: z
-    .array(z.object({ key: z.string().min(1, "Key required"), value: z.string() }))
-    .default([]),
+  extras: z.array(z.object({ key: z.string().min(1, "Key required"), value: z.string() })),
 })
 
-type FormValues = z.infer<typeof formSchema>
+type FormValues = {
+  webhook_url?: string
+  data: Array<{
+    data_size: number
+    identifier: string
+    date_start?: string
+    date_end?: string
+  }>
+  extras: Array<{ key: string; value: string }>
+}
 
 const defaultDataItem = { data_size: 1, identifier: "", date_start: "", date_end: "" }
 
@@ -113,24 +120,24 @@ export function CreateRequestSheet() {
   }
 
   return (
-    <Sheet open={open} onOpenChange={(v) => (v ? setOpen(true) : handleClose())}>
-      <SheetTrigger asChild>
+    <Dialog open={open} onOpenChange={(v) => (v ? setOpen(true) : handleClose())}>
+      <DialogTrigger asChild>
         <Button size="sm">
           <Plus className="h-4 w-4" />
           New Request
         </Button>
-      </SheetTrigger>
-      <SheetContent className="sm:max-w-xl flex flex-col gap-0 overflow-hidden">
-        <SheetHeader className="shrink-0 pb-4">
-          <SheetTitle>New Instagram Tagged Request</SheetTitle>
-          <SheetDescription>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col gap-0">
+        <DialogHeader className="shrink-0 pb-4">
+          <DialogTitle>New Instagram Tagged Request</DialogTitle>
+          <DialogDescription>
             Queue a scraping request for Instagram tagged content. Up to 50 items per request.
-          </SheetDescription>
-        </SheetHeader>
+          </DialogDescription>
+        </DialogHeader>
 
         <form
           onSubmit={handleSubmit(onSubmit)}
-          className="flex flex-col gap-6 overflow-y-auto pr-1 pb-6"
+          className="flex flex-col gap-6 overflow-y-auto pr-1 pb-2"
         >
           {/* Webhook URL */}
           <Controller
@@ -175,7 +182,7 @@ export function CreateRequestSheet() {
               )}
             </div>
 
-            <div className="flex flex-col gap-3 max-h-72 overflow-y-auto pr-1">
+            <div className="flex flex-col gap-3 max-h-64 overflow-y-auto pr-1">
               {dataFields.map((field, index) => (
                 <div key={field.id} className="rounded-md border p-3 space-y-3">
                   <div className="flex items-center justify-between">
@@ -207,7 +214,7 @@ export function CreateRequestSheet() {
                     )}
                   />
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-3 gap-3">
                     <Controller
                       name={`data.${index}.data_size`}
                       control={control}
@@ -219,7 +226,6 @@ export function CreateRequestSheet() {
                         </Field>
                       )}
                     />
-                    <div />
                     <Controller
                       name={`data.${index}.date_start`}
                       control={control}
@@ -329,7 +335,7 @@ export function CreateRequestSheet() {
             </Button>
           </div>
         </form>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   )
 }

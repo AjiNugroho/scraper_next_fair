@@ -15,6 +15,13 @@
       "when": 1781412382494,
       "tag": "0001_mighty_exiles",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1781424337115,
+      "tag": "0002_chief_vision",
+      "breakpoints": true
     }
   ]
 }

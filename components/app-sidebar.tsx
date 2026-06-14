@@ -4,7 +4,7 @@ import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Globe2, LayoutDashboard, Users, KeyRound } from "lucide-react"
-
+import { FaInstagram } from "react-icons/fa";
 import { authClient } from "@/lib/auth-client"
 import { NavUser } from "@/components/nav-main"
 import {
@@ -22,6 +22,7 @@ import {
 
 const NAV_ITEMS = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
+  { title: "Instagram Tagged", url: "/instagram-tagged", icon: FaInstagram },
   { title: "User Management", url: "/admin", icon: Users },
   { title: "API Keys", url: "/api-keys", icon: KeyRound },
 ]
