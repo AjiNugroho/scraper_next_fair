@@ -3,7 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Globe2, LayoutDashboard, Users } from "lucide-react"
+import { Globe2, LayoutDashboard, Users, KeyRound } from "lucide-react"
 
 import { authClient } from "@/lib/auth-client"
 import { NavUser } from "@/components/nav-main"
@@ -23,6 +23,7 @@ import {
 const NAV_ITEMS = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "User Management", url: "/admin", icon: Users },
+  { title: "API Keys", url: "/api-keys", icon: KeyRound },
 ]
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
