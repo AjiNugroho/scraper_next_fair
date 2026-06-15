@@ -5,6 +5,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Globe2, LayoutDashboard, Users, KeyRound, ScrollText, Webhook } from "lucide-react"
 import { FaInstagram } from "react-icons/fa"
+import { FaTiktok } from "react-icons/fa6"
 import { authClient } from "@/lib/auth-client"
 import { NavUser } from "@/components/nav-main"
 import {
@@ -31,6 +32,14 @@ const NAV_GROUPS = [
     label: "Instagram",
     items: [
       { title: "Tagged Requests", url: "/instagram-tagged", icon: FaInstagram },
+    ],
+  },
+  {
+    label: "TikTok",
+    items: [
+      { title: "Workers", url: "/tiktok", icon: FaTiktok },
+      { title: "Hashtags", url: "/tiktok/hashtags", icon: FaTiktok },
+      { title: "Job Requests", url: "/tiktok/jobs", icon: FaTiktok },
     ],
   },
   {
