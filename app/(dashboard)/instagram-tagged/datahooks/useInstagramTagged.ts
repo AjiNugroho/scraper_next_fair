@@ -41,7 +41,7 @@ export function useInstagramTaggedRequests(options: ListRequestsOptions = {}) {
         limit: String(limit),
         offset: String(offset),
       })
-      const res = await fetch(`/api/instagram-tagged?${params}`)
+      const res = await fetch(`/api/v1/internal/instagram-tagged?${params}`)
       if (!res.ok) throw new Error("Failed to fetch requests")
       return res.json() as Promise<{ requests: InstagramTaggedRequestItem[]; total: number }>
     },
@@ -52,7 +52,7 @@ export function useCreateInstagramTaggedRequest() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (input: CreateRequestInput) => {
-      const res = await fetch("/api/instagram-tagged", {
+      const res = await fetch("/api/v1/internal/instagram-tagged", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),

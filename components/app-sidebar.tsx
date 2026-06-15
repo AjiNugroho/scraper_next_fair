@@ -3,8 +3,8 @@
 import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Globe2, LayoutDashboard, Users, KeyRound } from "lucide-react"
-import { FaInstagram } from "react-icons/fa";
+import { Globe2, LayoutDashboard, Users, KeyRound, ScrollText, Webhook } from "lucide-react"
+import { FaInstagram } from "react-icons/fa"
 import { authClient } from "@/lib/auth-client"
 import { NavUser } from "@/components/nav-main"
 import {
@@ -20,11 +20,33 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar"
 
-const NAV_ITEMS = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Instagram Tagged", url: "/instagram-tagged", icon: FaInstagram },
-  { title: "User Management", url: "/admin", icon: Users },
-  { title: "API Keys", url: "/api-keys", icon: KeyRound },
+const NAV_GROUPS = [
+  {
+    label: "Overview",
+    items: [
+      { title: "Dashboard", url: "/", icon: LayoutDashboard },
+    ],
+  },
+  {
+    label: "Instagram",
+    items: [
+      { title: "Tagged Requests", url: "/instagram-tagged", icon: FaInstagram },
+    ],
+  },
+  {
+    label: "Logs",
+    items: [
+      { title: "Request Log", url: "/request-log", icon: ScrollText },
+      { title: "Webhook Log", url: "/webhook-log", icon: Webhook },
+    ],
+  },
+  {
+    label: "Admin",
+    items: [
+      { title: "User Management", url: "/admin", icon: Users },
+      { title: "API Keys", url: "/api-keys", icon: KeyRound },
+    ],
+  },
 ]
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
@@ -52,25 +74,27 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
-          <SidebarMenu>
-            {NAV_ITEMS.map((item) => (
-              <SidebarMenuItem key={item.url}>
-                <SidebarMenuButton
-                  asChild
-                  isActive={pathname === item.url}
-                  tooltip={item.title}
-                >
-                  <Link href={item.url}>
-                    <item.icon />
-                    <span>{item.title}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
-          </SidebarMenu>
-        </SidebarGroup>
+        {NAV_GROUPS.map((group) => (
+          <SidebarGroup key={group.label}>
+            <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+            <SidebarMenu>
+              {group.items.map((item) => (
+                <SidebarMenuItem key={item.url}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={pathname === item.url}
+                    tooltip={item.title}
+                  >
+                    <Link href={item.url}>
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroup>
+        ))}
       </SidebarContent>
 
       <SidebarFooter>

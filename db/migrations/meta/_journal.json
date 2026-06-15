@@ -22,6 +22,13 @@
       "when": 1781424337115,
       "tag": "0002_chief_vision",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1781484547388,
+      "tag": "0003_superb_shockwave",
+      "breakpoints": true
     }
   ]
 }

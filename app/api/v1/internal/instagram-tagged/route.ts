@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/db/drizzle"
 import { instagramTaggedRequest } from "@/db/scraper-schema"
-import { desc, count } from "drizzle-orm"
+import { desc, count, eq } from "drizzle-orm"
 import { auth } from "@/lib/auth"
 import { z } from "zod"
+import { publishInstagramTaggedItems } from "@/lib/rabbitmq"
 
 const itemSchema = z.object({
   data_size: z.number().min(1),
@@ -13,7 +14,7 @@ const itemSchema = z.object({
 })
 
 const inputSchema = z.object({
-  webhook_url: z.string().url().optional(),
+  webhook_url: z.url().optional(),
   extras: z.record(z.string(), z.unknown()).optional(),
   data: z.array(itemSchema).min(1).max(50),
 })
@@ -52,11 +53,12 @@ export async function POST(req: NextRequest) {
 
   const parsed = inputSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
+    return NextResponse.json({ error: parsed.error.issues }, { status: 400 })
   }
 
   const { webhook_url, extras, data } = parsed.data
 
+  // Persist the request first — record always exists regardless of queue outcome.
   const [created] = await db
     .insert(instagramTaggedRequest)
     .values({
@@ -67,5 +69,29 @@ export async function POST(req: NextRequest) {
     })
     .returning()
 
-  return NextResponse.json(created, { status: 201 })
+  // Publish one message per item in parallel, matching the worker contract.
+  try {
+    await publishInstagramTaggedItems({
+      items: data,
+      webhookUrl: webhook_url,
+      extras,
+      requestId: created.id,
+    })
+  } catch (err) {
+    await db
+      .update(instagramTaggedRequest)
+      .set({ status: "failed" })
+      .where(eq(instagramTaggedRequest.id, created.id))
+
+    console.error("[rabbitmq] publish failed:", err)
+    return NextResponse.json(
+      { error: "Request saved but could not be queued. Check RabbitMQ connectivity." },
+      { status: 502 },
+    )
+  }
+
+  return NextResponse.json(
+    { success: true, sent_messages: data.length, request: created },
+    { status: 201 },
+  )
 }

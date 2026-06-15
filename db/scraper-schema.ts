@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, index } from "drizzle-orm/pg-core"
+import { pgTable, text, timestamp, index, integer, uuid } from "drizzle-orm/pg-core"
 
 export const instagramTaggedRequest = pgTable(
   "instagram_tagged_request",
@@ -16,4 +16,22 @@ export const instagramTaggedRequest = pgTable(
       .notNull(),
   },
   (table) => [index("instagram_tagged_request_status_idx").on(table.status)],
+)
+
+export const webhookDeliveryLog = pgTable(
+  "webhook_delivery_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    requestId: text("request_id"),
+    platform: text("platform").notNull(),
+    accountName: text("account_name"),
+    clientWebhook: text("client_webhook"),
+    totalCount: integer("total_count").notNull().default(0),
+    validCount: integer("valid_count").notNull().default(0),
+    statusCode: integer("status_code"),
+    responseBody: text("response_body"),
+    errorMessage: text("error_message"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [index("webhook_delivery_log_request_id_idx").on(table.requestId)],
 )

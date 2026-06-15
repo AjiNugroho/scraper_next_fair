@@ -221,7 +221,14 @@ export function CreateRequestSheet() {
                       render={({ field: f, fieldState }) => (
                         <Field data-invalid={fieldState.invalid}>
                           <FieldLabel htmlFor={f.name}>Data Size</FieldLabel>
-                          <Input {...f} id={f.name} type="number" min={1} />
+                          <Input
+                            {...f}
+                            value={Number.isFinite(f.value) ? f.value : ""}
+                            id={f.name}
+                            type="number"
+                            min={1}
+                            onChange={(e) => f.onChange(e.target.valueAsNumber)}
+                          />
                           {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
                         </Field>
                       )}
