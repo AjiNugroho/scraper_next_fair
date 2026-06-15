@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
+import { sendTelegram } from "@/lib/telegram"
 
 async function requireSession(req: NextRequest) {
   const session = await auth.api.getSession({ headers: req.headers })
@@ -38,6 +39,10 @@ async function fetchQueueInfo(
   return { consumers: data.consumers ?? 0, messages: data.messages ?? 0 }
 }
 
+// Per-process cooldown — prevents Telegram spam when the worker stays down across multiple polls
+const ONE_HOUR = 60 * 60 * 1000
+let lastNotifiedAt = 0
+
 export async function GET(req: NextRequest) {
   const { error } = await requireSession(req)
   if (error) return error
@@ -54,22 +59,37 @@ export async function GET(req: NextRequest) {
     )
   }
 
-  // Parse credentials and vhost from amqp:// URL
   const amqp = new URL(rabbitmqUrl)
   const user = decodeURIComponent(amqp.username)
   const pass = decodeURIComponent(amqp.password)
-  // vhost is the pathname (e.g. "/" or "/myvhost")
   const vhost = decodeURIComponent(amqp.pathname.slice(1)) || "/"
-
-  // Management base is just the origin of the existing management URL
   const managementBase = new URL(managementUrl).origin
-
   const credentials = Buffer.from(`${user}:${pass}`).toString("base64")
 
   const [requestResult, responseResult] = await Promise.allSettled([
     fetchQueueInfo(managementBase, vhost, requestQueue, credentials),
     fetchQueueInfo(managementBase, vhost, responseQueue, credentials),
   ])
+
+  const requestInfo = requestResult.status === "fulfilled" ? requestResult.value : null
+  const responseInfo = responseResult.status === "fulfilled" ? responseResult.value : null
+
+  const inactiveQueues: string[] = []
+  if (requestInfo?.consumers === 0) inactiveQueues.push(requestQueue)
+  if (responseInfo?.consumers === 0) inactiveQueues.push(responseQueue)
+
+  if (inactiveQueues.length > 0 && Date.now() - lastNotifiedAt > ONE_HOUR) {
+    lastNotifiedAt = Date.now()
+
+    const lines = inactiveQueues.map((q) => {
+      const info = q === requestQueue ? requestInfo : responseInfo
+      return `• <b>${q}</b> — ${info?.messages ?? 0} messages waiting`
+    })
+
+    await sendTelegram(
+      `🔴 <b>Instagram worker inactive</b>\n\n${lines.join("\n")}\n\n<i>${new Date().toUTCString()}</i>`,
+    ).catch(() => {/* don't let Telegram failure affect the response */})
+  }
 
   return NextResponse.json({
     queues: {
