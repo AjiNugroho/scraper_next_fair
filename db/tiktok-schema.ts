@@ -37,6 +37,7 @@ export const tiktokHashtagRequest = pgTable("tiktok_hashtag_request", {
 export const tiktokHashtagVideoResult = pgTable("tiktok_hashtag_video_result", {
   id: uuid("id").primaryKey().defaultRandom(),
   workerName: text("worker_name").notNull(),
+  hashtag: text("hashtag").notNull(),
   videoUrl: text("video_url").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 })

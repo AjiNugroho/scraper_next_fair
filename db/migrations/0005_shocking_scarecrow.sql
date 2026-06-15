@@ -1,0 +1,1 @@
+ALTER TABLE "tiktok_hashtag_video_result" ADD COLUMN "hashtag" text NOT NULL;

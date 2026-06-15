@@ -43,6 +43,97 @@ const spec = {
     },
   },
   paths: {
+    "/tiktok-results": {
+      post: {
+        summary: "Submit TikTok scrape results",
+        operationId: "tiktokResultsCreate",
+        tags: ["TikTok Jobs"],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["worker_name", "hashtag", "video_urls"],
+                properties: {
+                  worker_name: { type: "string", minLength: 1, description: "Name of the mobile worker submitting results." },
+                  hashtag: { type: "string", minLength: 1, description: "Hashtag that was scraped (no # prefix)." },
+                  video_urls: {
+                    type: "array",
+                    minItems: 1,
+                    items: { type: "string", format: "uri" },
+                    description: "List of collected TikTok video URLs.",
+                  },
+                },
+              },
+              example: {
+                worker_name: "worker-01",
+                hashtag: "savearth",
+                video_urls: [
+                  "https://www.tiktok.com/@someuser/video/7650168556616895765",
+                  "https://www.tiktok.com/@anotheruser/video/7650168556616895766",
+                ],
+              },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Results saved.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean" },
+                    saved: { type: "integer", description: "Number of video URLs inserted." },
+                  },
+                },
+              },
+            },
+          },
+          "400": { description: "Validation error.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "401": { description: "Missing or invalid API key.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
+    "/expand-url": {
+      post: {
+        summary: "Expand a shortened TikTok URL",
+        operationId: "expandUrl",
+        tags: ["Helpers"],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["url"],
+                properties: {
+                  url: { type: "string", format: "uri", description: "Shortened or redirecting TikTok URL to expand." },
+                },
+              },
+              example: { url: "https://vm.tiktok.com/ZMxxxxxx/" },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Expanded URL (query string stripped).",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: { url: { type: "string", format: "uri" } },
+                },
+              },
+            },
+          },
+          "400": { description: "No redirect found or URL is invalid.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "401": { description: "Missing or invalid API key.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
     "/instagram-tagged": {
       post: {
         summary: "Submit Instagram tagged scrape request",

@@ -40,6 +40,7 @@ const NAV_GROUPS = [
       { title: "Workers", url: "/tiktok", icon: FaTiktok },
       { title: "Hashtags", url: "/tiktok/hashtags", icon: FaTiktok },
       { title: "Job Requests", url: "/tiktok/jobs", icon: FaTiktok },
+      { title: "Results", url: "/tiktok/results", icon: FaTiktok },
     ],
   },
   {
