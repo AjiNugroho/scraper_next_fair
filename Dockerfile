@@ -38,4 +38,4 @@ EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-CMD ["sh", "-c", "bun scripts/migrate.ts && bun server.js"]
+CMD ["sh", "-c", "bun scripts/migrate.ts && bun scripts/scheduler.ts & bun server.js"]

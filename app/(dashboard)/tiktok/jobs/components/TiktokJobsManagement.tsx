@@ -7,7 +7,7 @@ import {
   flexRender,
   type ColumnDef,
 } from "@tanstack/react-table"
-import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react"
+import { ChevronLeft, ChevronRight, Loader2, Pencil, Trash2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -29,6 +29,8 @@ import {
 import type { TiktokJobRequest } from "../datahooks/useTiktokJobs"
 import { useTiktokJobs } from "../datahooks/useTiktokJobs"
 import { SubmitJobSheet } from "./SubmitJobSheet"
+import { EditJobDialog } from "./EditJobDialog"
+import { DeleteJobDialog } from "./DeleteJobDialog"
 
 const PAGE_SIZE = 20
 
@@ -85,6 +87,8 @@ export function TiktokJobsManagement() {
     open: boolean
     extras: Record<string, unknown> | null
   }>({ open: false, extras: null })
+  const [editJob, setEditJob] = useState<TiktokJobRequest | null>(null)
+  const [deleteJob, setDeleteJob] = useState<TiktokJobRequest | null>(null)
 
   const { data, isLoading, isError } = useTiktokJobs({
     limit: PAGE_SIZE,
@@ -164,6 +168,30 @@ export function TiktokJobsManagement() {
           <span className="text-sm text-muted-foreground whitespace-nowrap">
             {formatDate(row.original.createdAt)}
           </span>
+        ),
+      },
+      {
+        id: "actions",
+        header: "",
+        cell: ({ row }) => (
+          <div className="flex items-center gap-1 justify-end">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => setEditJob(row.original)}
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-destructive hover:text-destructive"
+              onClick={() => setDeleteJob(row.original)}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         ),
       },
     ],
@@ -271,6 +299,18 @@ export function TiktokJobsManagement() {
         extras={extrasDialog.extras}
         open={extrasDialog.open}
         onOpenChange={(open) => setExtrasDialog((prev) => ({ ...prev, open }))}
+      />
+
+      <EditJobDialog
+        job={editJob}
+        open={editJob !== null}
+        onOpenChange={(open) => { if (!open) setEditJob(null) }}
+      />
+
+      <DeleteJobDialog
+        job={deleteJob}
+        open={deleteJob !== null}
+        onOpenChange={(open) => { if (!open) setDeleteJob(null) }}
       />
     </div>
   )

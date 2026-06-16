@@ -344,6 +344,54 @@ const spec = {
         },
       },
     },
+    "/api/webhooks/tiktok/hashtag": {
+      post: {
+        summary: "Bright Data results callback (TikTok hashtag)",
+        operationId: "tiktokHashtagWebhook",
+        tags: ["Webhooks"],
+        description:
+          "Called by Bright Data when a TikTok video scrape batch is complete. Pass `?request_id=<uuid>` so the system can look up the originating job and forward results to the client webhook. One trigger call = one webhook hit; multiple batches for the same request produce multiple hits.",
+        parameters: [
+          {
+            name: "request_id",
+            in: "query",
+            required: false,
+            schema: { type: "string", format: "uuid" },
+            description: "UUID of the `tiktok_hashtag_request` row that triggered this scrape.",
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "array",
+                items: { type: "object", additionalProperties: true },
+                description: "Array of scraped TikTok video objects as returned by Bright Data.",
+              },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Received and forwarded.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean" },
+                    received: { type: "integer", description: "Number of items in the payload." },
+                  },
+                },
+              },
+            },
+          },
+          "400": { description: "Invalid JSON body.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+        security: [],
+      },
+    },
     "/tiktok-jobs/{id}": {
       parameters: [
         {

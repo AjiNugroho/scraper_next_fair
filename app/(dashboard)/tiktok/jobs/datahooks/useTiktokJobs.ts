@@ -42,6 +42,55 @@ export function useTiktokJobs(options: ListJobsOptions = {}) {
   })
 }
 
+export type UpdateJobInput = {
+  id: string
+  hashtag?: string
+  webhook_url?: string | null
+  extras?: Record<string, unknown> | null
+}
+
+export function useUpdateTiktokJob() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, ...body }: UpdateJobInput) => {
+      const res = await fetch(`/api/v1/internal/tiktok/jobs/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error((err as { error?: string }).error ?? "Failed to update job")
+      }
+      return res.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: JOBS_KEY })
+      toast.success("Job updated")
+    },
+    onError: (error: Error) => toast.error(error.message),
+  })
+}
+
+export function useDeleteTiktokJob() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/v1/internal/tiktok/jobs/${id}`, { method: "DELETE" })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error((err as { error?: string }).error ?? "Failed to delete job")
+      }
+      return res.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: JOBS_KEY })
+      toast.success("Job deleted")
+    },
+    onError: (error: Error) => toast.error(error.message),
+  })
+}
+
 export function useSubmitTiktokJob() {
   const queryClient = useQueryClient()
   return useMutation({

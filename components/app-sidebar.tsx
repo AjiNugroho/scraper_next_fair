@@ -3,11 +3,12 @@
 import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Globe2, LayoutDashboard, Users, KeyRound, ScrollText, Webhook } from "lucide-react"
-import { FaInstagram } from "react-icons/fa"
+import { Globe2, LayoutDashboard, Users, KeyRound, ScrollText, Webhook, Smartphone } from "lucide-react"
+import { FaHashtag, FaInstagram, FaSpider } from "react-icons/fa"
 import { FaTiktok } from "react-icons/fa6"
 import { authClient } from "@/lib/auth-client"
 import { NavUser } from "@/components/nav-main"
+import { BiSolidVideos } from "react-icons/bi";
 import {
   Sidebar,
   SidebarContent,
@@ -37,10 +38,11 @@ const NAV_GROUPS = [
   {
     label: "TikTok",
     items: [
-      { title: "Workers", url: "/tiktok", icon: FaTiktok },
-      { title: "Hashtags", url: "/tiktok/hashtags", icon: FaTiktok },
-      { title: "Job Requests", url: "/tiktok/jobs", icon: FaTiktok },
-      { title: "Results", url: "/tiktok/results", icon: FaTiktok },
+      { title: "Scrape Requests", url: "/tiktok/jobs", icon: FaTiktok },
+      { title: "Mobile Workers", url: "/tiktok", icon: Smartphone },
+      { title: "Hashtags", url: "/tiktok/hashtags", icon: FaHashtag },
+      { title: "Scraped Results", url: "/tiktok/results", icon: BiSolidVideos },
+      { title: "BrightData Jobs", url: "/tiktok/scrape-jobs", icon: FaSpider },
     ],
   },
   {
