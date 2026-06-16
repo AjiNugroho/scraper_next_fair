@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/db/drizzle"
-import { tiktokHashtagRequest } from "@/db/tiktok-schema"
+import { tiktokHashtagRequest, tiktokWorker, tiktokWorkerHashtagTask, tiktokJobHashtag } from "@/db/tiktok-schema"
 import { eq } from "drizzle-orm"
 import { auth } from "@/lib/auth"
 import { z } from "zod"
@@ -37,17 +37,25 @@ export async function GET(
   const { error: authError } = await requireApiKey(req)
   if (authError) return authError
 
-  const { id } = await params
+  const { id: workerName } = await params
 
-  const [row] = await db
+  const [worker] = await db
     .select()
-    .from(tiktokHashtagRequest)
-    .where(eq(tiktokHashtagRequest.id, id))
+    .from(tiktokWorker)
+    .where(eq(tiktokWorker.name, workerName))
     .limit(1)
 
-  if (!row) return NextResponse.json({ error: "Job not found" }, { status: 404 })
+  if (!worker) {
+    return NextResponse.json({ error: "Worker not registered" }, { status: 404 })
+  }
 
-  return NextResponse.json({ job: row })
+  const tasks = await db
+    .select({ hashtag: tiktokJobHashtag.hashtag })
+    .from(tiktokWorkerHashtagTask)
+    .innerJoin(tiktokJobHashtag, eq(tiktokWorkerHashtagTask.hashtagId, tiktokJobHashtag.id))
+    .where(eq(tiktokWorkerHashtagTask.workerId, worker.id))
+
+  return NextResponse.json({ hashtags: tasks.map((t) => t.hashtag) })
 }
 
 export async function PATCH(

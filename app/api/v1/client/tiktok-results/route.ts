@@ -7,7 +7,7 @@ import { z } from "zod"
 const bodySchema = z.object({
   worker_name: z.string().min(1),
   hashtag: z.string().min(1),
-  video_urls: z.array(z.string().url()).min(1),
+  video_urls: z.array(z.string().url()),
 })
 
 async function requireApiKey(req: NextRequest) {
@@ -39,6 +39,10 @@ export async function POST(req: NextRequest) {
   }
 
   const { worker_name, hashtag, video_urls } = parsed.data
+
+  if (video_urls.length === 0) {
+    return NextResponse.json({ success: true, saved: 0 }, { status: 201 })
+  }
 
   const inserted = await db
     .insert(tiktokHashtagVideoResult)

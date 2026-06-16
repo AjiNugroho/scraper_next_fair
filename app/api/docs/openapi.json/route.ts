@@ -60,9 +60,8 @@ const spec = {
                   hashtag: { type: "string", minLength: 1, description: "Hashtag that was scraped (no # prefix)." },
                   video_urls: {
                     type: "array",
-                    minItems: 1,
                     items: { type: "string", format: "uri" },
-                    description: "List of collected TikTok video URLs.",
+                    description: "List of collected TikTok video URLs. Can be empty if the page yielded no results.",
                   },
                 },
               },
@@ -351,28 +350,36 @@ const spec = {
           name: "id",
           in: "path",
           required: true,
-          schema: { type: "string", format: "uuid" },
-          description: "Job UUID.",
+          schema: { type: "string" },
+          description: "Worker name (e.g. `brown-bear-44723`). For GET: used to look up the worker. For PATCH/DELETE: job UUID.",
         },
       ],
       get: {
-        summary: "Get a TikTok job",
-        operationId: "tiktokJobsGet",
+        summary: "Get hashtags assigned to a worker",
+        operationId: "tiktokJobsGetWorkerHashtags",
         tags: ["TikTok Jobs"],
+        description: "Returns the list of hashtags currently assigned to the given worker. Returns 404 if the worker name is not registered.",
         responses: {
           "200": {
-            description: "Job found.",
+            description: "Assigned hashtags.",
             content: {
               "application/json": {
                 schema: {
                   type: "object",
-                  properties: { job: { $ref: "#/components/schemas/TiktokJob" } },
+                  properties: {
+                    hashtags: {
+                      type: "array",
+                      items: { type: "string" },
+                      description: "Hashtags assigned to this worker (no # prefix).",
+                    },
+                  },
                 },
+                example: { hashtags: ["savearth", "nature", "wildlife"] },
               },
             },
           },
           "401": { description: "Missing or invalid API key.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
-          "404": { description: "Job not found.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "404": { description: "Worker not registered.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
         },
       },
       patch: {
