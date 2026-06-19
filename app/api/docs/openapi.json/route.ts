@@ -43,6 +43,74 @@ const spec = {
     },
   },
   paths: {
+    "/tiktok-video-scrape": {
+      post: {
+        summary: "Submit a TikTok video scrape request (test endpoint)",
+        operationId: "tiktokVideoScrapeCreate",
+        tags: ["TikTok Video Scraper"],
+        description:
+          "Publishes a `tiktok.scrape_video` Celery task to the `tiktok_videos_scraper` RabbitMQ queue. The `worker_tiktok_item` Celery worker picks it up, scrapes the video URL with a headless browser, and POSTs the result to `webhook_url`.",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["request_id", "url", "webhook_url"],
+                properties: {
+                  request_id: {
+                    type: "string",
+                    minLength: 1,
+                    description: "Caller-supplied identifier echoed back in the response and forwarded to the worker.",
+                  },
+                  url: {
+                    type: "string",
+                    format: "uri",
+                    description: "TikTok video URL to scrape (e.g. `https://www.tiktok.com/@user/video/123456`).",
+                  },
+                  webhook_url: {
+                    type: "string",
+                    format: "uri",
+                    description: "URL the worker will POST results to when scraping is done.",
+                  },
+                  extras: {
+                    type: "object",
+                    additionalProperties: true,
+                    description: "Optional free-form metadata forwarded as-is to the worker and included in the webhook payload.",
+                  },
+                },
+              },
+              example: {
+                request_id: "test-run-001",
+                url: "https://www.tiktok.com/@someuser/video/7650168556616895765",
+                webhook_url: "https://your-service.com/webhook/result",
+                extras: { campaign: "summer2026", hashtags: ["#viral"] },
+              },
+            },
+          },
+        },
+        responses: {
+          "202": {
+            description: "Task queued. The worker will call `webhook_url` asynchronously with the result.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    request_id: { type: "string" },
+                    status: { type: "string", enum: ["queued"] },
+                  },
+                },
+                example: { request_id: "test-run-001", status: "queued" },
+              },
+            },
+          },
+          "400": { description: "Validation error.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "401": { description: "Missing or invalid API key.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "502": { description: "Request valid but could not be queued (RabbitMQ unavailable).", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
     "/tiktok-results": {
       post: {
         summary: "Submit TikTok scrape results",

@@ -65,6 +65,96 @@ async function publishRaw(payloadStr: string): Promise<void> {
 }
 
 /**
+ * Publishes a Celery-format task message to RabbitMQ.
+ * Body format: [[], {kwargs}, {}]  (Celery protocol v1)
+ * Headers carry the task name and a generated task ID.
+ */
+async function publishCeleryTask({
+  taskName,
+  queue,
+  taskId,
+  kwargs,
+}: {
+  taskName: string
+  queue: string
+  taskId: string
+  kwargs: Record<string, unknown>
+}): Promise<void> {
+  const { username, password, publishUrl } = getPublishConfig()
+
+  const body = JSON.stringify([[], kwargs, {}])
+
+  const res = await fetch(publishUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`,
+    },
+    body: JSON.stringify({
+      properties: {
+        delivery_mode: 2,
+        content_type: "application/json",
+        content_encoding: "utf-8",
+        headers: {
+          task: taskName,
+          id: taskId,
+          lang: "py",
+          retries: 0,
+          eta: null,
+          expires: null,
+          utc: true,
+          callbacks: null,
+          errbacks: null,
+          timelimit: [null, null],
+          root_id: taskId,
+          parent_id: null,
+          group: null,
+        },
+      },
+      routing_key: queue,
+      payload: body,
+      payload_encoding: "string",
+    }),
+  })
+
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`RabbitMQ publish failed [${res.status}]: ${text}`)
+  }
+
+  const result = (await res.json()) as { routed: boolean }
+  if (!result.routed) {
+    throw new Error(`Message was not routed — queue "${queue}" may not exist yet`)
+  }
+}
+
+export async function publishTiktokVideoScrape({
+  taskId,
+  requestId,
+  url,
+  webhookUrl,
+  extras,
+}: {
+  taskId: string
+  requestId: string
+  url: string
+  webhookUrl: string
+  extras?: Record<string, unknown>
+}): Promise<void> {
+  await publishCeleryTask({
+    taskName: "tiktok.scrape_video",
+    queue: "tiktok_videos_scraper",
+    taskId,
+    kwargs: {
+      request_id: requestId,
+      url,
+      webhook_url: webhookUrl,
+      extras: extras ?? {},
+    },
+  })
+}
+
+/**
  * Publishes one RabbitMQ message per item in parallel, matching the worker contract:
  *   { task: "run_instagram_listing_scraper", args: [{ url, max_item, webhook_endpoint }] }
  */
