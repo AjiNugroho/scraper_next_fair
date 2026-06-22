@@ -7,7 +7,8 @@ import {
   flexRender,
   type ColumnDef,
 } from "@tanstack/react-table"
-import { ChevronLeft, ChevronRight, Loader2, Eye } from "lucide-react"
+import { ChevronLeft, ChevronRight, Loader2, Eye, Trash2 } from "lucide-react"
+import Link from "next/link"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -22,7 +23,7 @@ import {
 import type { BulkJob } from "../datahooks/useBulkScrape"
 import { useBulkJobs } from "../datahooks/useBulkScrape"
 import { UploadJobDialog } from "./UploadJobDialog"
-import { JobDetailSheet } from "./JobDetailSheet"
+import { DeleteBulkJobDialog } from "./DeleteBulkJobDialog"
 
 const PAGE_SIZE = 20
 
@@ -59,7 +60,7 @@ function ProgressBar({ value, total }: { value: number; total: number }) {
 
 export function BulkScrapeManagement() {
   const [page, setPage] = useState(0)
-  const [selectedJob, setSelectedJob] = useState<BulkJob | null>(null)
+  const [deleteJob, setDeleteJob] = useState<BulkJob | null>(null)
 
   const { data, isLoading, isError } = useBulkJobs({ limit: PAGE_SIZE, offset: page * PAGE_SIZE })
   const jobs = data?.jobs ?? []
@@ -120,14 +121,22 @@ export function BulkScrapeManagement() {
         id: "actions",
         header: "",
         cell: ({ row }) => (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            onClick={() => setSelectedJob(row.original)}
-          >
-            <Eye className="h-3.5 w-3.5" />
-          </Button>
+          <div className="flex items-center gap-1 justify-end">
+            <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
+              <Link href={`/tiktok/bulk-scrape/${row.original.id}`}>
+                <Eye className="h-3.5 w-3.5" />
+              </Link>
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-destructive hover:text-destructive"
+              disabled={row.original.status === "running"}
+              onClick={() => setDeleteJob(row.original)}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         ),
       },
     ],
@@ -231,10 +240,10 @@ export function BulkScrapeManagement() {
         </div>
       </div>
 
-      <JobDetailSheet
-        job={selectedJob}
-        open={selectedJob !== null}
-        onOpenChange={(open) => { if (!open) setSelectedJob(null) }}
+      <DeleteBulkJobDialog
+        job={deleteJob}
+        open={deleteJob !== null}
+        onOpenChange={(open) => { if (!open) setDeleteJob(null) }}
       />
     </div>
   )

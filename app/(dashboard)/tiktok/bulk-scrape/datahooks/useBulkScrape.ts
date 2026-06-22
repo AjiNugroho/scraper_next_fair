@@ -45,25 +45,20 @@ export function useBulkJobs(options: { limit?: number; offset?: number } = {}) {
   })
 }
 
-export function useBulkJobDetail(
-  id: string | null,
-  options: { status?: string; limit?: number; offset?: number } = {},
-) {
-  const { status, limit = 50, offset = 0 } = options
+export function useBulkJobAllItems(id: string | null) {
   return useQuery({
-    queryKey: [...BULK_JOBS_KEY, id, { status, limit, offset }],
+    queryKey: [...BULK_JOBS_KEY, id, "all-items"],
     enabled: !!id,
     queryFn: async () => {
-      const params = new URLSearchParams({ limit: String(limit), offset: String(offset) })
-      if (status) params.set("status", status)
+      const params = new URLSearchParams({ limit: "100000", offset: "0" })
       const res = await fetch(`/api/v1/internal/tiktok/bulk-jobs/${id}?${params}`)
-      if (!res.ok) throw new Error("Failed to fetch job detail")
+      if (!res.ok) throw new Error("Failed to fetch job items")
       return res.json() as Promise<{ job: BulkJob; items: BulkJobItem[]; total: number }>
     },
     refetchInterval: (query) => {
       const job = query.state.data?.job
       if (!job) return false
-      return job.status === "running" || job.status === "pending" ? 3_000 : false
+      return job.status === "running" || job.status === "pending" ? 5_000 : false
     },
   })
 }
@@ -85,6 +80,25 @@ export function useUploadBulkJob() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: BULK_JOBS_KEY })
       toast.success(`Job "${data.job.name}" created with ${data.job.totalUrls.toLocaleString()} URLs`)
+    },
+    onError: (err: Error) => toast.error(err.message),
+  })
+}
+
+export function useDeleteBulkJob() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/v1/internal/tiktok/bulk-jobs/${id}`, { method: "DELETE" })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error((err as { error?: string }).error ?? "Failed to delete job")
+      }
+      return res.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: BULK_JOBS_KEY })
+      toast.success("Bulk job deleted")
     },
     onError: (err: Error) => toast.error(err.message),
   })
