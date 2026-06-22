@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, integer, jsonb, index } from "drizzle-orm/pg-core"
+import { pgTable, text, timestamp, uuid, integer, jsonb, index, boolean } from "drizzle-orm/pg-core"
 
 export const tiktokWorker = pgTable("tiktok_worker", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -53,4 +53,68 @@ export const tiktokScrapeJobRun = pgTable("tiktok_scrape_job_run", {
   batchesSent: integer("batches_sent").notNull().default(0),
   videoUrlsCount: integer("video_urls_count").notNull().default(0),
   status: text("status").notNull().default("running"), // "running" | "done" | "failed"
+})
+
+export const tiktokBulkJob = pgTable("tiktok_bulk_job", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").notNull(),
+  status: text("status").notNull().default("pending"), // pending | running | done | failed
+  totalUrls: integer("total_urls").notNull().default(0),
+  processed: integer("processed").notNull().default(0),
+  successCount: integer("success_count").notNull().default(0),
+  failedCount: integer("failed_count").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+})
+
+export const tiktokBulkJobItem = pgTable(
+  "tiktok_bulk_job_item",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    bulkJobId: uuid("bulk_job_id")
+      .notNull()
+      .references(() => tiktokBulkJob.id, { onDelete: "cascade" }),
+    url: text("url").notNull(),
+    status: text("status").notNull().default("pending"), // pending | running | success | failed
+    retryCount: integer("retry_count").notNull().default(0),
+    error: text("error"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("tiktok_bulk_job_item_bulk_job_id_idx").on(table.bulkJobId),
+    index("tiktok_bulk_job_item_status_idx").on(table.status),
+  ],
+)
+
+export const tiktokBulkVideoResult = pgTable("tiktok_bulk_video_result", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  itemId: uuid("item_id")
+    .notNull()
+    .unique()
+    .references(() => tiktokBulkJobItem.id, { onDelete: "cascade" }),
+  videoId: text("video_id"),
+  url: text("url"),
+  description: text("description"),
+  videoCreatedAt: text("video_created_at"),
+  durationS: integer("duration_s"),
+  location: text("location"),
+  isAd: boolean("is_ad"),
+  isEcom: boolean("is_ecom"),
+  statsPlays: integer("stats_plays"),
+  statsLikes: integer("stats_likes"),
+  statsComments: integer("stats_comments"),
+  statsShares: integer("stats_shares"),
+  statsSaves: integer("stats_saves"),
+  statsReposts: integer("stats_reposts"),
+  hashtags: jsonb("hashtags").$type<string[]>(),
+  suggestedWords: jsonb("suggested_words").$type<string[]>(),
+  music: jsonb("music").$type<Record<string, unknown>>(),
+  author: jsonb("author").$type<Record<string, unknown>>(),
+  product: jsonb("product").$type<Record<string, unknown> | null>(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 })

@@ -3,7 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Globe2, LayoutDashboard, Users, KeyRound, ScrollText, Webhook, Smartphone } from "lucide-react"
+import { Globe2, LayoutDashboard, Users, KeyRound, ScrollText, Webhook, Smartphone, FileUp } from "lucide-react"
 import { FaHashtag, FaInstagram, FaSpider } from "react-icons/fa"
 import { FaTiktok } from "react-icons/fa6"
 import { authClient } from "@/lib/auth-client"
@@ -43,6 +43,7 @@ const NAV_GROUPS = [
       { title: "Hashtags", url: "/tiktok/hashtags", icon: FaHashtag },
       { title: "Scraped Results", url: "/tiktok/results", icon: BiSolidVideos },
       { title: "BrightData Jobs", url: "/tiktok/scrape-jobs", icon: FaSpider },
+      { title: "Bulk Video Scrape", url: "/tiktok/bulk-scrape", icon: FileUp },
     ],
   },
   {
