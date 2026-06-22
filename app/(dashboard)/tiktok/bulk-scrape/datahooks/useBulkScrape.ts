@@ -23,6 +23,14 @@ export type BulkJobItem = {
   error: string | null
   createdAt: string
   updatedAt: string
+  // from left join with tiktok_bulk_video_result (null when not yet scraped)
+  statsPlays: number | null
+  statsLikes: number | null
+  statsComments: number | null
+  statsShares: number | null
+  statsSaves: number | null
+  statsReposts: number | null
+  isTiktokShop: boolean
 }
 
 const BULK_JOBS_KEY = ["tiktok-bulk-jobs"] as const

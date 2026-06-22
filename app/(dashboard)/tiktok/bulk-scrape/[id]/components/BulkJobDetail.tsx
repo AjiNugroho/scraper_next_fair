@@ -53,13 +53,24 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 function downloadCsv(items: BulkJobItem[], jobName: string) {
-  const headers = ["url", "status", "retry_count", "error", "created_at", "updated_at"]
+  const headers = [
+    "url", "status", "retry_count", "error",
+    "plays", "likes", "comments", "shares", "saves", "reposts", "is_tiktok_shop",
+    "created_at", "updated_at",
+  ]
   const rows = items.map((item) =>
     [
       item.url,
       item.status,
       item.retryCount,
       item.error ?? "",
+      item.statsPlays ?? "",
+      item.statsLikes ?? "",
+      item.statsComments ?? "",
+      item.statsShares ?? "",
+      item.statsSaves ?? "",
+      item.statsReposts ?? "",
+      item.isTiktokShop,
       item.createdAt,
       item.updatedAt,
     ]
@@ -126,6 +137,80 @@ export function BulkJobDetail({ id }: { id: string }) {
               title={row.original.error}
             >
               {row.original.error}
+            </span>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          ),
+      },
+      {
+        accessorKey: "statsPlays",
+        header: "Plays",
+        cell: ({ row }) =>
+          row.original.statsPlays != null ? (
+            <span className="text-sm tabular-nums">{row.original.statsPlays.toLocaleString()}</span>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          ),
+      },
+      {
+        accessorKey: "statsLikes",
+        header: "Likes",
+        cell: ({ row }) =>
+          row.original.statsLikes != null ? (
+            <span className="text-sm tabular-nums">{row.original.statsLikes.toLocaleString()}</span>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          ),
+      },
+      {
+        accessorKey: "statsComments",
+        header: "Comments",
+        cell: ({ row }) =>
+          row.original.statsComments != null ? (
+            <span className="text-sm tabular-nums">{row.original.statsComments.toLocaleString()}</span>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          ),
+      },
+      {
+        accessorKey: "statsShares",
+        header: "Shares",
+        cell: ({ row }) =>
+          row.original.statsShares != null ? (
+            <span className="text-sm tabular-nums">{row.original.statsShares.toLocaleString()}</span>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          ),
+      },
+      {
+        accessorKey: "statsSaves",
+        header: "Saves",
+        cell: ({ row }) =>
+          row.original.statsSaves != null ? (
+            <span className="text-sm tabular-nums">{row.original.statsSaves.toLocaleString()}</span>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          ),
+      },
+      {
+        accessorKey: "statsReposts",
+        header: "Reposts",
+        cell: ({ row }) =>
+          row.original.statsReposts != null ? (
+            <span className="text-sm tabular-nums">{row.original.statsReposts.toLocaleString()}</span>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          ),
+      },
+      {
+        accessorKey: "isTiktokShop",
+        header: "TikTok Shop",
+        cell: ({ row }) =>
+          row.original.statsPlays != null ? (
+            <span
+              className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${row.original.isTiktokShop ? "bg-green-500/10 text-green-600" : "bg-muted text-muted-foreground"}`}
+            >
+              {row.original.isTiktokShop ? "Yes" : "No"}
             </span>
           ) : (
             <span className="text-muted-foreground">—</span>

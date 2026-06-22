@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { db } from "@/db/drizzle"
-import { tiktokBulkJob, tiktokBulkJobItem } from "@/db/tiktok-schema"
-import { eq, and, count } from "drizzle-orm"
+import { tiktokBulkJob, tiktokBulkJobItem, tiktokBulkVideoResult } from "@/db/tiktok-schema"
+import { eq, and, count, sql } from "drizzle-orm"
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth.api.getSession({ headers: req.headers })
@@ -23,7 +23,29 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     : eq(tiktokBulkJobItem.bulkJobId, id)
 
   const [items, [{ total }]] = await Promise.all([
-    db.select().from(tiktokBulkJobItem).where(itemsWhere).limit(limit).offset(offset),
+    db
+      .select({
+        id: tiktokBulkJobItem.id,
+        bulkJobId: tiktokBulkJobItem.bulkJobId,
+        url: tiktokBulkJobItem.url,
+        status: tiktokBulkJobItem.status,
+        retryCount: tiktokBulkJobItem.retryCount,
+        error: tiktokBulkJobItem.error,
+        createdAt: tiktokBulkJobItem.createdAt,
+        updatedAt: tiktokBulkJobItem.updatedAt,
+        statsPlays: tiktokBulkVideoResult.statsPlays,
+        statsLikes: tiktokBulkVideoResult.statsLikes,
+        statsComments: tiktokBulkVideoResult.statsComments,
+        statsShares: tiktokBulkVideoResult.statsShares,
+        statsSaves: tiktokBulkVideoResult.statsSaves,
+        statsReposts: tiktokBulkVideoResult.statsReposts,
+        isTiktokShop: sql<boolean>`${tiktokBulkVideoResult.product} IS NOT NULL`,
+      })
+      .from(tiktokBulkJobItem)
+      .leftJoin(tiktokBulkVideoResult, eq(tiktokBulkVideoResult.itemId, tiktokBulkJobItem.id))
+      .where(itemsWhere)
+      .limit(limit)
+      .offset(offset),
     db.select({ total: count() }).from(tiktokBulkJobItem).where(itemsWhere),
   ])
 
