@@ -1,4 +1,16 @@
 import { NextResponse } from "next/server"
+import fs from "fs"
+import path from "path"
+
+const docsDir = path.join(process.cwd(), "docs")
+
+function readDoc(filename: string): string {
+  try {
+    return fs.readFileSync(path.join(docsDir, filename), "utf-8")
+  } catch {
+    return ""
+  }
+}
 
 const tiktokJobSchema = {
   type: "object",
@@ -14,6 +26,9 @@ const tiktokJobSchema = {
   required: ["id", "hashtag", "createdAt"],
 }
 
+const instagramDoc = readDoc("instagram-scraper-flow.md")
+const tiktokDoc = readDoc("tiktok-scraper-flow.md")
+
 const spec = {
   openapi: "3.1.0",
   info: {
@@ -24,6 +39,13 @@ const spec = {
   },
   servers: [{ url: "/api/v1/client", description: "Production" }],
   security: [{ ApiKeyAuth: [] }],
+  tags: [
+    { name: "Instagram", description: instagramDoc },
+    { name: "TikTok Jobs", description: tiktokDoc },
+    { name: "TikTok Video Scraper" },
+    { name: "Webhooks" },
+    { name: "Helpers" },
+  ],
   components: {
     securitySchemes: {
       ApiKeyAuth: {
