@@ -53,12 +53,17 @@ export function useBulkJobs(options: { limit?: number; offset?: number } = {}) {
   })
 }
 
-export function useBulkJobAllItems(id: string | null) {
+export function useBulkJobItems(
+  id: string | null,
+  options: { status?: string; limit?: number; offset?: number } = {},
+) {
+  const { status, limit = 50, offset = 0 } = options
   return useQuery({
-    queryKey: [...BULK_JOBS_KEY, id, "all-items"],
+    queryKey: [...BULK_JOBS_KEY, id, "items", { status, limit, offset }],
     enabled: !!id,
     queryFn: async () => {
-      const params = new URLSearchParams({ limit: "100000", offset: "0" })
+      const params = new URLSearchParams({ limit: String(limit), offset: String(offset) })
+      if (status) params.set("status", status)
       const res = await fetch(`/api/v1/internal/tiktok/bulk-jobs/${id}?${params}`)
       if (!res.ok) throw new Error("Failed to fetch job items")
       return res.json() as Promise<{ job: BulkJob; items: BulkJobItem[]; total: number }>

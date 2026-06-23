@@ -4,11 +4,8 @@ import { useState, useMemo } from "react"
 import {
   useReactTable,
   getCoreRowModel,
-  getPaginationRowModel,
-  getFilteredRowModel,
   flexRender,
   type ColumnDef,
-  type ColumnFiltersState,
 } from "@tanstack/react-table"
 import { RefreshCw, Loader2, ChevronLeft, ChevronRight, Download, ArrowLeft } from "lucide-react"
 import Link from "next/link"
@@ -30,10 +27,10 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Card } from "@/components/ui/card"
-import { useBulkJobAllItems, useRetryBulkJob } from "../../datahooks/useBulkScrape"
+import { useBulkJobItems, useRetryBulkJob } from "../../datahooks/useBulkScrape"
 import type { BulkJobItem } from "../../datahooks/useBulkScrape"
 
-const PAGE_SIZE = 100
+const PAGE_SIZE = 50
 
 const STATUS_STYLES: Record<string, string> = {
   pending: "bg-muted text-muted-foreground",
@@ -52,7 +49,23 @@ function StatusBadge({ status }: { status: string }) {
   )
 }
 
-function downloadCsv(items: BulkJobItem[], jobName: string) {
+function Stat({ value }: { value: number | null }) {
+  return value != null ? (
+    <span className="text-sm tabular-nums">{value.toLocaleString()}</span>
+  ) : (
+    <span className="text-muted-foreground">—</span>
+  )
+}
+
+async function fetchAllItems(id: string): Promise<BulkJobItem[]> {
+  const params = new URLSearchParams({ limit: "100000", offset: "0" })
+  const res = await fetch(`/api/v1/internal/tiktok/bulk-jobs/${id}?${params}`)
+  if (!res.ok) throw new Error("Failed to fetch items for download")
+  const data = await res.json()
+  return data.items as BulkJobItem[]
+}
+
+function triggerCsvDownload(items: BulkJobItem[], jobName: string) {
   const headers = [
     "url", "status", "retry_count", "error",
     "plays", "likes", "comments", "shares", "saves", "reposts", "is_tiktok_shop",
@@ -88,12 +101,21 @@ function downloadCsv(items: BulkJobItem[], jobName: string) {
 }
 
 export function BulkJobDetail({ id }: { id: string }) {
-  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
+  const [page, setPage] = useState(0)
+  const [statusFilter, setStatusFilter] = useState("all")
+  const [downloading, setDownloading] = useState(false)
   const retry = useRetryBulkJob()
 
-  const { data, isLoading, isError } = useBulkJobAllItems(id)
+  const { data, isLoading, isError } = useBulkJobItems(id, {
+    status: statusFilter === "all" ? undefined : statusFilter,
+    limit: PAGE_SIZE,
+    offset: page * PAGE_SIZE,
+  })
+
   const job = data?.job
-  const allItems = data?.items ?? []
+  const items = data?.items ?? []
+  const total = data?.total ?? 0
+  const totalPages = Math.ceil(total / PAGE_SIZE)
 
   const columns = useMemo<ColumnDef<BulkJobItem>[]>(
     () => [
@@ -105,7 +127,7 @@ export function BulkJobDetail({ id }: { id: string }) {
             href={row.original.url}
             target="_blank"
             rel="noreferrer"
-            className="text-sm text-primary hover:underline max-w-sm truncate block"
+            className="text-sm text-primary hover:underline max-w-xs truncate block"
             title={row.original.url}
           >
             {row.original.url}
@@ -115,7 +137,6 @@ export function BulkJobDetail({ id }: { id: string }) {
       {
         accessorKey: "status",
         header: "Status",
-        filterFn: "equals",
         cell: ({ row }) => <StatusBadge status={row.original.status} />,
       },
       {
@@ -133,7 +154,7 @@ export function BulkJobDetail({ id }: { id: string }) {
         cell: ({ row }) =>
           row.original.error ? (
             <span
-              className="text-xs text-destructive max-w-xs truncate block"
+              className="text-xs text-destructive max-w-[180px] truncate block"
               title={row.original.error}
             >
               {row.original.error}
@@ -145,62 +166,32 @@ export function BulkJobDetail({ id }: { id: string }) {
       {
         accessorKey: "statsPlays",
         header: "Plays",
-        cell: ({ row }) =>
-          row.original.statsPlays != null ? (
-            <span className="text-sm tabular-nums">{row.original.statsPlays.toLocaleString()}</span>
-          ) : (
-            <span className="text-muted-foreground">—</span>
-          ),
+        cell: ({ row }) => <Stat value={row.original.statsPlays} />,
       },
       {
         accessorKey: "statsLikes",
         header: "Likes",
-        cell: ({ row }) =>
-          row.original.statsLikes != null ? (
-            <span className="text-sm tabular-nums">{row.original.statsLikes.toLocaleString()}</span>
-          ) : (
-            <span className="text-muted-foreground">—</span>
-          ),
+        cell: ({ row }) => <Stat value={row.original.statsLikes} />,
       },
       {
         accessorKey: "statsComments",
         header: "Comments",
-        cell: ({ row }) =>
-          row.original.statsComments != null ? (
-            <span className="text-sm tabular-nums">{row.original.statsComments.toLocaleString()}</span>
-          ) : (
-            <span className="text-muted-foreground">—</span>
-          ),
+        cell: ({ row }) => <Stat value={row.original.statsComments} />,
       },
       {
         accessorKey: "statsShares",
         header: "Shares",
-        cell: ({ row }) =>
-          row.original.statsShares != null ? (
-            <span className="text-sm tabular-nums">{row.original.statsShares.toLocaleString()}</span>
-          ) : (
-            <span className="text-muted-foreground">—</span>
-          ),
+        cell: ({ row }) => <Stat value={row.original.statsShares} />,
       },
       {
         accessorKey: "statsSaves",
         header: "Saves",
-        cell: ({ row }) =>
-          row.original.statsSaves != null ? (
-            <span className="text-sm tabular-nums">{row.original.statsSaves.toLocaleString()}</span>
-          ) : (
-            <span className="text-muted-foreground">—</span>
-          ),
+        cell: ({ row }) => <Stat value={row.original.statsSaves} />,
       },
       {
         accessorKey: "statsReposts",
         header: "Reposts",
-        cell: ({ row }) =>
-          row.original.statsReposts != null ? (
-            <span className="text-sm tabular-nums">{row.original.statsReposts.toLocaleString()}</span>
-          ) : (
-            <span className="text-muted-foreground">—</span>
-          ),
+        cell: ({ row }) => <Stat value={row.original.statsReposts} />,
       },
       {
         accessorKey: "isTiktokShop",
@@ -229,38 +220,30 @@ export function BulkJobDetail({ id }: { id: string }) {
     [],
   )
 
-  const statusFilter = (columnFilters.find((f) => f.id === "status")?.value as string) ?? "all"
-
   const table = useReactTable({
-    data: allItems,
+    data: items,
     columns,
-    state: { columnFilters },
-    onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    initialState: { pagination: { pageSize: PAGE_SIZE } },
+    manualPagination: true,
+    rowCount: total,
   })
 
-  const filteredRows = table.getFilteredRowModel().rows
-  const pageIndex = table.getState().pagination.pageIndex
-  const pageCount = table.getPageCount()
-  const displayedFrom = pageIndex * PAGE_SIZE + 1
-  const displayedTo = Math.min((pageIndex + 1) * PAGE_SIZE, filteredRows.length)
-
   function handleStatusFilter(value: string) {
-    if (value === "all") {
-      table.getColumn("status")?.setFilterValue(undefined)
-    } else {
-      table.getColumn("status")?.setFilterValue(value)
-    }
-    table.setPageIndex(0)
+    setStatusFilter(value)
+    setPage(0)
   }
 
-  function handleDownload(filtered: boolean) {
+  async function handleDownload() {
     if (!job) return
-    const items = filtered ? filteredRows.map((r) => r.original) : allItems
-    downloadCsv(items, job.name)
+    setDownloading(true)
+    try {
+      const all = await fetchAllItems(id)
+      triggerCsvDownload(all, job.name)
+    } catch {
+      // silent — user can retry
+    } finally {
+      setDownloading(false)
+    }
   }
 
   return (
@@ -324,7 +307,7 @@ export function BulkJobDetail({ id }: { id: string }) {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All ({allItems.length.toLocaleString()})</SelectItem>
+            <SelectItem value="all">All</SelectItem>
             <SelectItem value="pending">Pending</SelectItem>
             <SelectItem value="running">Running</SelectItem>
             <SelectItem value="success">Success</SelectItem>
@@ -332,28 +315,29 @@ export function BulkJobDetail({ id }: { id: string }) {
           </SelectContent>
         </Select>
 
-        <div className="flex items-center gap-2">
-          {statusFilter !== "all" && filteredRows.length !== allItems.length && (
-            <Button size="sm" variant="outline" onClick={() => handleDownload(true)}>
-              <Download className="h-3.5 w-3.5" />
-              Download filtered ({filteredRows.length.toLocaleString()})
-            </Button>
-          )}
-          <Button size="sm" variant="outline" onClick={() => handleDownload(false)} disabled={allItems.length === 0}>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={handleDownload}
+          disabled={downloading || !job}
+        >
+          {downloading ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
             <Download className="h-3.5 w-3.5" />
-            Download all ({allItems.length.toLocaleString()})
-          </Button>
-        </div>
+          )}
+          Download all CSV
+        </Button>
       </div>
 
       {/* Table */}
-      <div className="rounded-md border">
+      <div className="rounded-md border overflow-x-auto">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((hg) => (
               <TableRow key={hg.id}>
                 {hg.headers.map((header) => (
-                  <TableHead key={header.id}>
+                  <TableHead key={header.id} className="whitespace-nowrap">
                     {header.isPlaceholder
                       ? null
                       : flexRender(header.column.columnDef.header, header.getContext())}
@@ -402,8 +386,8 @@ export function BulkJobDetail({ id }: { id: string }) {
       {/* Pagination */}
       <div className="flex items-center justify-between text-sm text-muted-foreground">
         <span>
-          {filteredRows.length > 0
-            ? `${displayedFrom.toLocaleString()}–${displayedTo.toLocaleString()} of ${filteredRows.length.toLocaleString()} items`
+          {total > 0
+            ? `${page * PAGE_SIZE + 1}–${Math.min((page + 1) * PAGE_SIZE, total)} of ${total.toLocaleString()} items`
             : "0 items"}
         </span>
         <div className="flex items-center gap-1">
@@ -411,20 +395,20 @@ export function BulkJobDetail({ id }: { id: string }) {
             variant="outline"
             size="icon"
             className="h-8 w-8"
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
+            onClick={() => setPage((p) => p - 1)}
+            disabled={page === 0 || isLoading}
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <span className="px-2">
-            {pageIndex + 1} / {Math.max(pageCount, 1)}
+            {page + 1} / {Math.max(totalPages, 1)}
           </span>
           <Button
             variant="outline"
             size="icon"
             className="h-8 w-8"
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
+            onClick={() => setPage((p) => p + 1)}
+            disabled={page >= totalPages - 1 || isLoading}
           >
             <ChevronRight className="h-4 w-4" />
           </Button>

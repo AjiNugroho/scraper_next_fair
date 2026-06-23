@@ -4,7 +4,7 @@ import { publishTiktokVideoScrape } from "@/lib/rabbitmq"
 import { eq, and } from "drizzle-orm"
 import { randomUUID } from "crypto"
 
-const DELAY_MS = 5_000
+const DELAY_MS = 3_000
 const POLL_INTERVAL_MS = 3_000
 // Max time to wait for a single item's webhook before giving up and marking it failed
 const ITEM_TIMEOUT_MS = 5 * 60 * 1_000 // 5 minutes
