@@ -2,7 +2,7 @@
 
 > Versi: Next-Scraper  
 > Bahasa: Bahasa Indonesia  
-> Terakhir diperbarui: 2026-06-18
+> Terakhir diperbarui: 2026-06-23
 
 ---
 
@@ -103,7 +103,7 @@ sequenceDiagram
         end
     end
 
-    API-->>C: 201 Created<br/>{ success: true, request_id, sent_messages }
+    API-->>C: 201 Created<br/>{ success: true, message, data: { sent_messages } }
 ```
 
 ### 3.2 Alur Scraping & Penerimaan Hasil (Processing Phase)
@@ -267,24 +267,57 @@ Klien akan menerima POST ke webhook URL mereka dengan format:
 {
   "account_name": "savearth",
   "date_scraped": "2024-01-15T10:30:00.000Z",
-  "posts": [
-    {
-      "url": "https://www.instagram.com/p/ABC123/",
-      "shortcode": "ABC123",
-      "post_id": "123456789",
-      "user_posted": "savearth",
-      "description": "Teks caption postingan...",
-      "likes": 1500,
-      "num_comments": 45,
-      "hashtags": ["#saveearth", "#nature", "#ocean"],
-      "photos": ["https://cdn.instagram.com/..."],
-      "videos": null,
-      "tagged_users": [
-        { "username": "user123", "id": "..." }
-      ],
-      "timestamp": "2024-01-10T08:00:00.000Z"
-    }
-  ],
+  "posts":[
+      {
+         "url":"https://www.instagram.com/azkacorbuzier/p/CF4KItQH_nn/",
+         "shortcode":"CF4KItQH_nn",
+         "post_id":"2411722179266738663",
+         "user_posted":"azkacorbuzier",
+         "user_posted_id":"1710230054",
+         "description":"Yeaaaay new one now published!! Go to my profile for link... Thank you  guys!!! #hashtag",
+         "content_type":"Reel",
+         "date_posted":"2020-10-03T10:09:14.000Z",
+         "likes":22825,
+         "num_comments":99,
+         "hashtags":[
+            "#hashtag"
+         ],
+         "photos":[
+            "https://scontent-iad6-1.cdninstagram.com/v/t51.71878-15/528715856_1442975066963268_1638416297302277885_n.jpg?stp=dst-jpg_e15_tt6&_nc_ht=scontent-iad6-1.cdninstagram.com&_nc_cat=100&_nc_oc=Q6cZ2gFq4OEcIpfz0_EOXV6C83pPrxgoaArIhDL5uj2lQ8ZmpBirq8qUC3E2ijEQqM4Beh0&_nc_ohc=BszZU7J4SYgQ7kNvwF9fhdb&_nc_gid=kDn1-SiJVVES0p1YM1eLvg&edm=ANTKIIoBAAAA&ccb=7-5&oh=00_Af-_lNqt7NBy3K2oDB2FOwTqu80oKeb1eLsDnc1r4TJ5nA&oe=6A3F22F7&_nc_sid=d885a2"
+         ],
+         "videos":[
+            "https://scontent-iad6-1.cdninstagram.com/o1/v/t16/f2/m84/AQNMRIuRN-pIRJss17zanJMHEPamEaPOhkgs8q79CMZ1qoA84F80ka_M431d4IP_0-jWK-Cy6JCfswi-OLrwar3V3Tqhn153cJ2mUoI.mp4?_nc_cat=100&_nc_sid=5e9851&_nc_ht=scontent-iad6-1.cdninstagram.com&_nc_ohc=oi4hpHdI-PYQ7kNvwF9VTsh&efg=eyJ2ZW5jb2RlX3RhZyI6Inhwdl9wcm9ncmVzc2l2ZS5JTlNUQUdSQU0uRkVFRC5DMy43MjAuZGFzaF9iYXNlbGluZV8xX3YxIiwieHB2X2Fzc2V0X2lkIjoxMDE2NDAwMTE2Mjg3NDM0LCJhc3NldF9hZ2VfZGF5cyI6MjA4OCwidmlfdXNlY2FzZV9pZCI6MTAxNDYsImR1cmF0aW9uX3MiOjM3LCJ1cmxnZW5fc291cmNlIjoid3d3In0%3D&ccb=17-1&vs=747c19383680c6d2&_nc_vs=HBksFQIYTGlnX2JhY2tmaWxsX3RpbWVsaW5lX3ZvZC9DQzRDNzM1QjAxRjE2QTA2QUQ0MDU0NzcyRTJDQzQ5Ql92aWRlb19kYXNoaW5pdC5tcDQVAALIARIAFQIYOnBhc3N0aHJvdWdoX2V2ZXJzdG9yZS9HRWp5NUJia2JEcTg3M0FEQUpxakNneC1QdEFBYnBrd0FBQUYVAgLIARIAKAAYABsCiAd1c2Vfb2lsATEScHJvZ3Jlc3NpdmVfcmVjaXBlATEVAAAmlJ-M_qKazgMVAigCQzMsF0BC0QYk3S8bGBJkYXNoX2Jhc2VsaW5lXzFfdjERAHXqB2XEngEA&_nc_gid=kDn1-SiJVVES0p1YM1eLvg&_nc_zt=28&_nc_ss=7a22e&oh=00_Af8UxRAhw1Ck-9FfOSyznI_0iktzvVU8B8gYDRiYLrSKjA&oe=6A3B0F84"
+         ],
+         "thumbnail":"https://scontent-iad6-1.cdninstagram.com/v/t51.71878-15/528715856_1442975066963268_1638416297302277885_n.jpg?stp=dst-jpg_e15_s640x640_tt6&_nc_ht=scontent-iad6-1.cdninstagram.com&_nc_cat=100&_nc_oc=Q6cZ2gFq4OEcIpfz0_EOXV6C83pPrxgoaArIhDL5uj2lQ8ZmpBirq8qUC3E2ijEQqM4Beh0&_nc_ohc=BszZU7J4SYgQ7kNvwF9fhdb&_nc_gid=kDn1-SiJVVES0p1YM1eLvg&edm=ANTKIIoBAAAA&ccb=7-5&oh=00_Af9kpJz0yTxQZnCUY6Irns14Z-r5vZA6bvXmWgTqqi7Shg&oe=6A3F22F7&_nc_sid=d885a2",
+         "is_verified":true,
+         "followers":1490134,
+         "posts_count":1881,
+         "tagged_users":[
+            {
+               "full_name":"D.C",
+               "id":"7684785",
+               "is_verified":true,
+               "profile_pic_url":"https://scontent-iad3-1.cdninstagram.com/v/t51.2885-19/412756607_417464117474905_8072528562417024727_n.jpg?stp=dst-jpg_s150x150_tt6&efg=eyJ2ZW5jb2RlX3RhZyI6InByb2ZpbGVfcGljLmRqYW5nby4xMDgwLmMyIn0&_nc_ht=scontent-iad3-1.cdninstagram.com&_nc_cat=1&_nc_oc=Q6cZ2gFq4OEcIpfz0_EOXV6C83pPrxgoaArIhDL5uj2lQ8ZmpBirq8qUC3E2ijEQqM4Beh0&_nc_ohc=m3uQvZKW_YkQ7kNvwEYHnwy&_nc_gid=kDn1-SiJVVES0p1YM1eLvg&edm=ANTKIIoBAAAA&ccb=7-5&oh=00_Af_9Q16-8K92aT9uPWGxr_eopUaeS5PdesV1BfHPsnU_NA&oe=6A3F2056&_nc_sid=d885a2",
+               "username":"mastercorbuzier"
+            },
+            {
+               "full_name":"Agustinus Setiabudi",
+               "id":"711207885",
+               "is_verified":true,
+               "profile_pic_url":"https://scontent-iad6-1.cdninstagram.com/v/t51.82787-19/523937807_18519871273039886_2264387262505152442_n.jpg?stp=dst-jpg_s150x150_tt6&efg=eyJ2ZW5jb2RlX3RhZyI6InByb2ZpbGVfcGljLmRqYW5nby4xMDgwLmMyIn0&_nc_ht=scontent-iad6-1.cdninstagram.com&_nc_cat=102&_nc_oc=Q6cZ2gFq4OEcIpfz0_EOXV6C83pPrxgoaArIhDL5uj2lQ8ZmpBirq8qUC3E2ijEQqM4Beh0&_nc_ohc=qTBPGw9MzQ4Q7kNvwHmv_6M&_nc_gid=kDn1-SiJVVES0p1YM1eLvg&edm=ANTKIIoBAAAA&ccb=7-5&oh=00_Af9LbT4K3_Zvg4cY5aRLdt0-n7gAel44ATPJAwXxeRpU8w&oe=6A3F0416&_nc_sid=d885a2",
+               "username":"noagusnopartyy"
+            }
+         ],
+         "is_paid_partnership":false,
+         "partnership_details":{
+            "profile_id":null,
+            "username":null,
+            "profile_url":null
+         },
+         "location":null,
+         "timestamps":null
+      }
+   ],
   "extras": {
     "listen_group_id": 1,
     "request_data_id": 42
@@ -459,8 +492,10 @@ curl -X POST https://api-server.com/api/v1/client/instagram-tagged \
 ```json
 {
   "success": true,
-  "request_id": "uuid-request-anda",
-  "sent_messages": 1
+  "message": "Message sent and queued successfully",
+  "data": {
+    "sent_messages": 1
+  }
 }
 ```
 

@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
   const requestDataId =
     typeof extras?.request_data_id === "number" ? extras.request_data_id : null
 
-  const created = await db
+  await db
     .insert(tiktokHashtagRequest)
     .values(
       data.map((item) => ({
@@ -91,7 +91,6 @@ export async function POST(req: NextRequest) {
         extras: extras ?? null,
       })),
     )
-    .returning()
 
   await db
     .insert(tiktokJobHashtag)
@@ -100,5 +99,5 @@ export async function POST(req: NextRequest) {
 
   await rebalance()
 
-  return NextResponse.json({ success: true, jobs: created }, { status: 201 })
+  return NextResponse.json({ success: true,message:'Jobs created successfully',data:{sent_messages: data.length}}, { status: 201 })
 }

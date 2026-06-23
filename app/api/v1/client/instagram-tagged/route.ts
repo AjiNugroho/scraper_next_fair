@@ -84,7 +84,13 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json(
-    { success: true, request_id: created.id, sent_messages: data.length },
+    { 
+      success: true, 
+      message:'Message sent and queued successfully',
+      data:{
+        sent_messages: data.length 
+      }  
+    },
     { status: 201 },
   )
 }

@@ -2,7 +2,7 @@
 
 > Versi: Next-Scraper  
 > Bahasa: Bahasa Indonesia  
-> Terakhir diperbarui: 2026-06-18
+> Terakhir diperbarui: 2026-06-23
 
 ---
 
@@ -180,7 +180,7 @@ sequenceDiagram
 
     API->>DB: Distribusi ulang hashtag ke semua worker
 
-    API-->>C: 201 { success: true, jobs: [...] }
+    API-->>C: 201 { success: true, message, data: { sent_messages } }
 ```
 
 ### 4.2 Alur Worker Mobile Polling & Melaporkan Hasil
@@ -579,11 +579,10 @@ curl -X POST https://api-server.com/api/v1/client/tiktok-jobs \
 ```json
 {
   "success": true,
-  "jobs": [
-    { "id": "uuid-1", "hashtag": "savearth" },
-    { "id": "uuid-2", "hashtag": "ocean" },
-    { "id": "uuid-3", "hashtag": "wildlife" }
-  ]
+  "message": "Jobs created successfully",
+  "data": {
+    "sent_messages": 3
+  }
 }
 ```
 
