@@ -16,19 +16,19 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog"
-import { useUploadBulkJob } from "../datahooks/useBulkScrape"
+import { useUploadBulkBatch } from "../datahooks/useBulkScrape"
 
 const formSchema = z.object({
-  name: z.string().min(1, "Job name is required"),
+  name: z.string().min(1, "Upload name is required"),
 })
 type FormValues = z.infer<typeof formSchema>
 
-export function UploadJobDialog() {
+export function UploadBatchDialog() {
   const [open, setOpen] = useState(false)
   const [file, setFile] = useState<File | null>(null)
   const [fileError, setFileError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const upload = useUploadBulkJob()
+  const upload = useUploadBulkBatch()
 
   const {
     register,
@@ -75,17 +75,17 @@ export function UploadJobDialog() {
       <Dialog open={open} onOpenChange={(v) => (v ? setOpen(true) : handleClose())}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Upload Bulk Scrape Job</DialogTitle>
+            <DialogTitle>Upload Bulk Scrape CSV</DialogTitle>
             <DialogDescription>
-              Upload a CSV file with a single &quot;url&quot; column. Each URL will be scraped one
-              by one with a 5-second delay between requests.
+              Upload a CSV file with a single &quot;url&quot; column. Large files are automatically
+              split into batches of 5,000 URLs. Start each batch manually when ready.
             </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <Field data-invalid={!!errors.name}>
-              <FieldLabel htmlFor="job-name">Job Name</FieldLabel>
-              <Input id="job-name" placeholder="e.g. Wardah Beauty Campaign" {...register("name")} />
+              <FieldLabel htmlFor="upload-name">Upload Name</FieldLabel>
+              <Input id="upload-name" placeholder="e.g. Wardah Beauty Campaign" {...register("name")} />
               {errors.name && <FieldError>{errors.name.message}</FieldError>}
             </Field>
 
@@ -117,11 +117,9 @@ export function UploadJobDialog() {
                 ) : (
                   <>
                     <UploadCloud className="h-8 w-8 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">
-                      Click to select a CSV file
-                    </p>
+                    <p className="text-sm text-muted-foreground">Click to select a CSV file</p>
                     <p className="text-xs text-muted-foreground">
-                      Must have a &quot;url&quot; column header
+                      Must have a &quot;url&quot; column header · max 50,000 rows
                     </p>
                   </>
                 )}
@@ -142,7 +140,7 @@ export function UploadJobDialog() {
               </Button>
               <Button type="submit" disabled={upload.isPending}>
                 {upload.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                Upload & Start
+                Upload
               </Button>
             </div>
           </form>

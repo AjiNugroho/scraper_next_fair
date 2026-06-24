@@ -1,12 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
-export type BulkJob = {
+export type BulkBatch = {
   id: string
-  name: string
-  status: "pending" | "running" | "done" | "failed"
+  uploadName: string
+  batchNumber: number
+  totalBatches: number
+  status: "pending" | "running" | "stopped" | "done"
   totalUrls: number
-  processed: number
+  dispatched: number
   successCount: number
   failedCount: number
   createdAt: string
@@ -14,16 +16,15 @@ export type BulkJob = {
   completedAt: string | null
 }
 
-export type BulkJobItem = {
+export type BulkBatchItem = {
   id: string
-  bulkJobId: string
+  batchId: string
   url: string
   status: "pending" | "running" | "success" | "failed"
   retryCount: number
   error: string | null
   createdAt: string
   updatedAt: string
-  // from left join with tiktok_bulk_video_result (null when not yet scraped)
   statsPlays: number | null
   statsLikes: number | null
   statsComments: number | null
@@ -33,104 +34,129 @@ export type BulkJobItem = {
   isTiktokShop: boolean
 }
 
-const BULK_JOBS_KEY = ["tiktok-bulk-jobs"] as const
+const BATCHES_KEY = ["tiktok-bulk-batches"] as const
 
-export function useBulkJobs(options: { limit?: number; offset?: number } = {}) {
+export function useBulkBatches(options: { limit?: number; offset?: number } = {}) {
   const { limit = 20, offset = 0 } = options
   return useQuery({
-    queryKey: [...BULK_JOBS_KEY, { limit, offset }],
+    queryKey: [...BATCHES_KEY, { limit, offset }],
     queryFn: async () => {
       const params = new URLSearchParams({ limit: String(limit), offset: String(offset) })
-      const res = await fetch(`/api/v1/internal/tiktok/bulk-jobs?${params}`)
-      if (!res.ok) throw new Error("Failed to fetch bulk jobs")
-      return res.json() as Promise<{ jobs: BulkJob[]; total: number }>
+      const res = await fetch(`/api/v1/internal/tiktok/bulk-batches?${params}`)
+      if (!res.ok) throw new Error("Failed to fetch batches")
+      return res.json() as Promise<{ batches: BulkBatch[]; total: number }>
     },
     refetchInterval: (query) => {
-      const jobs = query.state.data?.jobs ?? []
-      const hasActive = jobs.some((j) => j.status === "running" || j.status === "pending")
-      return hasActive ? 5_000 : false
+      const batches = query.state.data?.batches ?? []
+      const hasActive = batches.some((b) => b.status === "running")
+      return hasActive ? 4_000 : false
     },
   })
 }
 
-export function useBulkJobItems(
+export function useBulkBatchItems(
   id: string | null,
   options: { status?: string; limit?: number; offset?: number } = {},
 ) {
   const { status, limit = 50, offset = 0 } = options
   return useQuery({
-    queryKey: [...BULK_JOBS_KEY, id, "items", { status, limit, offset }],
+    queryKey: [...BATCHES_KEY, id, "items", { status, limit, offset }],
     enabled: !!id,
     queryFn: async () => {
       const params = new URLSearchParams({ limit: String(limit), offset: String(offset) })
       if (status) params.set("status", status)
-      const res = await fetch(`/api/v1/internal/tiktok/bulk-jobs/${id}?${params}`)
-      if (!res.ok) throw new Error("Failed to fetch job items")
-      return res.json() as Promise<{ job: BulkJob; items: BulkJobItem[]; total: number }>
+      const res = await fetch(`/api/v1/internal/tiktok/bulk-batches/${id}?${params}`)
+      if (!res.ok) throw new Error("Failed to fetch batch items")
+      return res.json() as Promise<{ batch: BulkBatch; items: BulkBatchItem[]; total: number }>
     },
     refetchInterval: (query) => {
-      const job = query.state.data?.job
-      if (!job) return false
-      return job.status === "running" || job.status === "pending" ? 5_000 : false
+      const batch = query.state.data?.batch
+      if (!batch) return false
+      return batch.status === "running" ? 4_000 : false
     },
   })
 }
 
-export function useUploadBulkJob() {
+export function useUploadBulkBatch() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async ({ name, file }: { name: string; file: File }) => {
       const form = new FormData()
       form.append("name", name)
       form.append("file", file)
-      const res = await fetch("/api/v1/internal/tiktok/bulk-jobs", { method: "POST", body: form })
+      const res = await fetch("/api/v1/internal/tiktok/bulk-batches", {
+        method: "POST",
+        body: form,
+      })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
-        throw new Error((err as { error?: string }).error ?? "Failed to upload job")
+        throw new Error((err as { error?: string }).error ?? "Failed to upload")
       }
-      return res.json() as Promise<{ job: BulkJob }>
+      return res.json() as Promise<{ batches: BulkBatch[]; totalUrls: number }>
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: BULK_JOBS_KEY })
-      toast.success(`Job "${data.job.name}" created with ${data.job.totalUrls.toLocaleString()} URLs`)
+      queryClient.invalidateQueries({ queryKey: BATCHES_KEY })
+      toast.success(
+        `${data.totalUrls.toLocaleString()} URLs saved as ${data.batches.length} batch${data.batches.length !== 1 ? "es" : ""}`,
+      )
     },
     onError: (err: Error) => toast.error(err.message),
   })
 }
 
-export function useDeleteBulkJob() {
+export function useStartBatch() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`/api/v1/internal/tiktok/bulk-jobs/${id}`, { method: "DELETE" })
+      const res = await fetch(`/api/v1/internal/tiktok/bulk-batches/${id}/start`, {
+        method: "POST",
+      })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
-        throw new Error((err as { error?: string }).error ?? "Failed to delete job")
+        throw new Error((err as { error?: string }).error ?? "Failed to start batch")
+      }
+      return res.json()
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: BATCHES_KEY }),
+    onError: (err: Error) => toast.error(err.message),
+  })
+}
+
+export function useStopBatch() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/v1/internal/tiktok/bulk-batches/${id}/stop`, {
+        method: "POST",
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error((err as { error?: string }).error ?? "Failed to stop batch")
       }
       return res.json()
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: BULK_JOBS_KEY })
-      toast.success("Bulk job deleted")
+      queryClient.invalidateQueries({ queryKey: BATCHES_KEY })
+      toast.success("Batch stopped — already dispatched items will still complete via webhook")
     },
     onError: (err: Error) => toast.error(err.message),
   })
 }
 
-export function useRetryBulkJob() {
+export function useDeleteBulkBatch() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`/api/v1/internal/tiktok/bulk-jobs/${id}/retry`, { method: "POST" })
+      const res = await fetch(`/api/v1/internal/tiktok/bulk-batches/${id}`, { method: "DELETE" })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
-        throw new Error((err as { error?: string }).error ?? "Failed to retry job")
+        throw new Error((err as { error?: string }).error ?? "Failed to delete batch")
       }
       return res.json()
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: BULK_JOBS_KEY })
-      toast.success("Failed items re-queued for retry")
+      queryClient.invalidateQueries({ queryKey: BATCHES_KEY })
+      toast.success("Batch deleted")
     },
     onError: (err: Error) => toast.error(err.message),
   })

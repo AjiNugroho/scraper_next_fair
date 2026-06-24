@@ -55,12 +55,14 @@ export const tiktokScrapeJobRun = pgTable("tiktok_scrape_job_run", {
   status: text("status").notNull().default("running"), // "running" | "done" | "failed"
 })
 
-export const tiktokBulkJob = pgTable("tiktok_bulk_job", {
+export const tiktokBulkBatch = pgTable("tiktok_bulk_batch", {
   id: uuid("id").primaryKey().defaultRandom(),
-  name: text("name").notNull(),
-  status: text("status").notNull().default("pending"), // pending | running | done | failed
+  uploadName: text("upload_name").notNull(),
+  batchNumber: integer("batch_number").notNull(),
+  totalBatches: integer("total_batches").notNull(),
+  status: text("status").notNull().default("pending"), // pending | running | stopped | done
   totalUrls: integer("total_urls").notNull().default(0),
-  processed: integer("processed").notNull().default(0),
+  dispatched: integer("dispatched").notNull().default(0),
   successCount: integer("success_count").notNull().default(0),
   failedCount: integer("failed_count").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -68,13 +70,13 @@ export const tiktokBulkJob = pgTable("tiktok_bulk_job", {
   completedAt: timestamp("completed_at"),
 })
 
-export const tiktokBulkJobItem = pgTable(
-  "tiktok_bulk_job_item",
+export const tiktokBulkBatchItem = pgTable(
+  "tiktok_bulk_batch_item",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    bulkJobId: uuid("bulk_job_id")
+    batchId: uuid("batch_id")
       .notNull()
-      .references(() => tiktokBulkJob.id, { onDelete: "cascade" }),
+      .references(() => tiktokBulkBatch.id, { onDelete: "cascade" }),
     url: text("url").notNull(),
     status: text("status").notNull().default("pending"), // pending | running | success | failed
     retryCount: integer("retry_count").notNull().default(0),
@@ -86,8 +88,8 @@ export const tiktokBulkJobItem = pgTable(
       .notNull(),
   },
   (table) => [
-    index("tiktok_bulk_job_item_bulk_job_id_idx").on(table.bulkJobId),
-    index("tiktok_bulk_job_item_status_idx").on(table.status),
+    index("tiktok_bulk_batch_item_batch_id_idx").on(table.batchId),
+    index("tiktok_bulk_batch_item_status_idx").on(table.status),
   ],
 )
 
@@ -96,7 +98,7 @@ export const tiktokBulkVideoResult = pgTable("tiktok_bulk_video_result", {
   itemId: uuid("item_id")
     .notNull()
     .unique()
-    .references(() => tiktokBulkJobItem.id, { onDelete: "cascade" }),
+    .references(() => tiktokBulkBatchItem.id, { onDelete: "cascade" }),
   videoId: text("video_id"),
   url: text("url"),
   description: text("description"),

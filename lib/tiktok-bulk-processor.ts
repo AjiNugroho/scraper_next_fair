@@ -1,63 +1,62 @@
 import { db } from "@/db/drizzle"
-import { tiktokBulkJob, tiktokBulkJobItem } from "@/db/tiktok-schema"
+import { tiktokBulkBatch, tiktokBulkBatchItem } from "@/db/tiktok-schema"
 import { publishTiktokVideoScrape } from "@/lib/rabbitmq"
-import { eq, and } from "drizzle-orm"
+import { eq, and, or, sql } from "drizzle-orm"
 import { randomUUID } from "crypto"
 
-const DELAY_MS = 3_000
-const POLL_INTERVAL_MS = 3_000
-// Max time to wait for a single item's webhook before giving up and marking it failed
-const ITEM_TIMEOUT_MS = 5 * 60 * 1_000 // 5 minutes
+// Flush dispatched counter and check for stop signal every N items
+const FLUSH_INTERVAL = 50
 
-function sleep(ms: number) {
-  return new Promise<void>((resolve) => setTimeout(resolve, ms))
-}
-
-async function waitForItemCompletion(itemId: string): Promise<void> {
-  const deadline = Date.now() + ITEM_TIMEOUT_MS
-
-  while (Date.now() < deadline) {
-    await sleep(POLL_INTERVAL_MS)
-
-    const [row] = await db
-      .select({ status: tiktokBulkJobItem.status })
-      .from(tiktokBulkJobItem)
-      .where(eq(tiktokBulkJobItem.id, itemId))
-      .limit(1)
-
-    if (!row || row.status === "success" || row.status === "failed") return
-  }
-
-  // Timed out — webhook never arrived
-  await db
-    .update(tiktokBulkJobItem)
-    .set({ status: "failed", error: "Timed out waiting for scraper response", updatedAt: new Date() })
-    .where(eq(tiktokBulkJobItem.id, itemId))
-}
-
-export async function processBulkJob(jobId: string): Promise<void> {
+export async function startBatch(batchId: string): Promise<void> {
   const appUrl = process.env.APP_BASE_URL
   if (!appUrl) throw new Error("APP_BASE_URL is not set")
 
+  // Only transition if currently pending or stopped
   await db
-    .update(tiktokBulkJob)
-    .set({ status: "running", startedAt: new Date() })
-    .where(and(eq(tiktokBulkJob.id, jobId), eq(tiktokBulkJob.status, "pending")))
+    .update(tiktokBulkBatch)
+    .set({
+      status: "running",
+      startedAt: sql`COALESCE(${tiktokBulkBatch.startedAt}, NOW())`,
+    })
+    .where(
+      and(
+        eq(tiktokBulkBatch.id, batchId),
+        or(eq(tiktokBulkBatch.status, "pending"), eq(tiktokBulkBatch.status, "stopped")),
+      ),
+    )
 
   const pendingItems = await db
     .select()
-    .from(tiktokBulkJobItem)
-    .where(and(eq(tiktokBulkJobItem.bulkJobId, jobId), eq(tiktokBulkJobItem.status, "pending")))
+    .from(tiktokBulkBatchItem)
+    .where(and(eq(tiktokBulkBatchItem.batchId, batchId), eq(tiktokBulkBatchItem.status, "pending")))
+
+  let pendingFlush = 0
 
   for (let i = 0; i < pendingItems.length; i++) {
+    if (i > 0 && i % FLUSH_INTERVAL === 0) {
+      // Flush dispatched count and check if user stopped the batch
+      await db
+        .update(tiktokBulkBatch)
+        .set({ dispatched: sql`${tiktokBulkBatch.dispatched} + ${pendingFlush}` })
+        .where(eq(tiktokBulkBatch.id, batchId))
+      pendingFlush = 0
+
+      const [row] = await db
+        .select({ status: tiktokBulkBatch.status })
+        .from(tiktokBulkBatch)
+        .where(eq(tiktokBulkBatch.id, batchId))
+        .limit(1)
+      if (!row || row.status !== "running") return
+    }
+
     const item = pendingItems[i]
 
-    await db
-      .update(tiktokBulkJobItem)
-      .set({ status: "running" })
-      .where(eq(tiktokBulkJobItem.id, item.id))
-
     try {
+      await db
+        .update(tiktokBulkBatchItem)
+        .set({ status: "running" })
+        .where(eq(tiktokBulkBatchItem.id, item.id))
+
       await publishTiktokVideoScrape({
         taskId: randomUUID(),
         requestId: item.id,
@@ -65,51 +64,44 @@ export async function processBulkJob(jobId: string): Promise<void> {
         webhookUrl: `${appUrl}/api/webhooks/tiktok/video`,
         extras: {},
       })
+
+      pendingFlush++
     } catch (err) {
-      const error = err instanceof Error ? err.message : "Unknown error"
-      console.error(`[bulk-processor] failed to publish item ${item.id}:`, err)
+      const error = err instanceof Error ? err.message : "Unknown publish error"
+      console.error(`[batch-processor] failed to publish item ${item.id}:`, err)
 
-      await db
-        .update(tiktokBulkJobItem)
-        .set({ status: "failed", error, updatedAt: new Date() })
-        .where(eq(tiktokBulkJobItem.id, item.id))
-
-      await db
-        .update(tiktokBulkJob)
-        .set({ processed: i + 1, failedCount: i + 1 })
-        .where(eq(tiktokBulkJob.id, jobId))
-
-      // Still wait before next item even on publish failure
-      if (i < pendingItems.length - 1) await sleep(DELAY_MS)
-      continue
+      await Promise.all([
+        db
+          .update(tiktokBulkBatchItem)
+          .set({ status: "failed", error })
+          .where(eq(tiktokBulkBatchItem.id, item.id)),
+        db
+          .update(tiktokBulkBatch)
+          .set({ failedCount: sql`${tiktokBulkBatch.failedCount} + 1` })
+          .where(eq(tiktokBulkBatch.id, batchId)),
+      ])
     }
-
-    // Wait for the webhook to mark this item success/failed before moving on
-    await waitForItemCompletion(item.id)
-
-    await db
-      .update(tiktokBulkJob)
-      .set({ processed: i + 1 })
-      .where(eq(tiktokBulkJob.id, jobId))
-
-    // Delay before dispatching the next item
-    if (i < pendingItems.length - 1) await sleep(DELAY_MS)
   }
 
-  await db
-    .update(tiktokBulkJob)
-    .set({ status: "done", completedAt: new Date() })
-    .where(eq(tiktokBulkJob.id, jobId))
-}
+  // Final flush of any remaining dispatched count
+  if (pendingFlush > 0) {
+    await db
+      .update(tiktokBulkBatch)
+      .set({ dispatched: sql`${tiktokBulkBatch.dispatched} + ${pendingFlush}` })
+      .where(eq(tiktokBulkBatch.id, batchId))
+  }
 
-export async function retryFailedItems(jobId: string): Promise<void> {
-  await db
-    .update(tiktokBulkJobItem)
-    .set({ status: "pending", error: null, updatedAt: new Date() })
-    .where(and(eq(tiktokBulkJobItem.bulkJobId, jobId), eq(tiktokBulkJobItem.status, "failed")))
+  // Mark done only if still running (not externally stopped while we were looping)
+  const [batch] = await db
+    .select({ status: tiktokBulkBatch.status })
+    .from(tiktokBulkBatch)
+    .where(eq(tiktokBulkBatch.id, batchId))
+    .limit(1)
 
-  await db
-    .update(tiktokBulkJob)
-    .set({ status: "pending", completedAt: null })
-    .where(eq(tiktokBulkJob.id, jobId))
+  if (batch?.status === "running") {
+    await db
+      .update(tiktokBulkBatch)
+      .set({ status: "done", completedAt: new Date() })
+      .where(eq(tiktokBulkBatch.id, batchId))
+  }
 }

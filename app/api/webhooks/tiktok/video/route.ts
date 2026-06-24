@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/db/drizzle"
-import { tiktokBulkJob, tiktokBulkJobItem, tiktokBulkVideoResult } from "@/db/tiktok-schema"
+import { tiktokBulkBatch, tiktokBulkBatchItem, tiktokBulkVideoResult } from "@/db/tiktok-schema"
 import { eq, sql } from "drizzle-orm"
 import { z } from "zod"
 
@@ -54,8 +54,8 @@ export async function POST(req: NextRequest) {
 
   const [item] = await db
     .select()
-    .from(tiktokBulkJobItem)
-    .where(eq(tiktokBulkJobItem.id, request_id))
+    .from(tiktokBulkBatchItem)
+    .where(eq(tiktokBulkBatchItem.id, request_id))
     .limit(1)
 
   if (!item) {
@@ -67,9 +67,9 @@ export async function POST(req: NextRequest) {
 
     await Promise.all([
       db
-        .update(tiktokBulkJobItem)
+        .update(tiktokBulkBatchItem)
         .set({ status: "success", updatedAt: new Date() })
-        .where(eq(tiktokBulkJobItem.id, item.id)),
+        .where(eq(tiktokBulkBatchItem.id, item.id)),
 
       db.insert(tiktokBulkVideoResult).values({
         itemId: item.id,
@@ -95,23 +95,23 @@ export async function POST(req: NextRequest) {
       }),
 
       db
-        .update(tiktokBulkJob)
-        .set({ successCount: sql`${tiktokBulkJob.successCount} + 1` })
-        .where(eq(tiktokBulkJob.id, item.bulkJobId)),
+        .update(tiktokBulkBatch)
+        .set({ successCount: sql`${tiktokBulkBatch.successCount} + 1` })
+        .where(eq(tiktokBulkBatch.id, item.batchId)),
     ])
   } else {
     const errorMsg = error ?? `Scraper returned status: ${status}`
 
     await Promise.all([
       db
-        .update(tiktokBulkJobItem)
+        .update(tiktokBulkBatchItem)
         .set({ status: "failed", error: errorMsg, updatedAt: new Date() })
-        .where(eq(tiktokBulkJobItem.id, item.id)),
+        .where(eq(tiktokBulkBatchItem.id, item.id)),
 
       db
-        .update(tiktokBulkJob)
-        .set({ failedCount: sql`${tiktokBulkJob.failedCount} + 1` })
-        .where(eq(tiktokBulkJob.id, item.bulkJobId)),
+        .update(tiktokBulkBatch)
+        .set({ failedCount: sql`${tiktokBulkBatch.failedCount} + 1` })
+        .where(eq(tiktokBulkBatch.id, item.batchId)),
     ])
   }
 

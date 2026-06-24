@@ -7,7 +7,7 @@ import {
   flexRender,
   type ColumnDef,
 } from "@tanstack/react-table"
-import { RefreshCw, Loader2, ChevronLeft, ChevronRight, Download, ArrowLeft } from "lucide-react"
+import { Loader2, ChevronLeft, ChevronRight, Download, ArrowLeft } from "lucide-react"
 import Link from "next/link"
 
 import { Button } from "@/components/ui/button"
@@ -27,8 +27,8 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Card } from "@/components/ui/card"
-import { useBulkJobItems, useRetryBulkJob } from "../../datahooks/useBulkScrape"
-import type { BulkJobItem } from "../../datahooks/useBulkScrape"
+import { useBulkBatchItems } from "../../datahooks/useBulkScrape"
+import type { BulkBatch, BulkBatchItem } from "../../datahooks/useBulkScrape"
 
 const PAGE_SIZE = 50
 
@@ -39,10 +39,17 @@ const STATUS_STYLES: Record<string, string> = {
   failed: "bg-destructive/10 text-destructive",
 }
 
-function StatusBadge({ status }: { status: string }) {
+const BATCH_STATUS_STYLES: Record<string, string> = {
+  pending: "bg-muted text-muted-foreground",
+  running: "bg-primary/10 text-primary",
+  stopped: "bg-yellow-500/10 text-yellow-600",
+  done: "bg-green-500/10 text-green-600",
+}
+
+function StatusBadge({ status, styles }: { status: string; styles: Record<string, string> }) {
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[status] ?? "bg-muted text-muted-foreground"}`}
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${styles[status] ?? "bg-muted text-muted-foreground"}`}
     >
       {status}
     </span>
@@ -57,15 +64,33 @@ function Stat({ value }: { value: number | null }) {
   )
 }
 
-async function fetchAllItems(id: string): Promise<BulkJobItem[]> {
-  const params = new URLSearchParams({ limit: "100000", offset: "0" })
-  const res = await fetch(`/api/v1/internal/tiktok/bulk-jobs/${id}?${params}`)
-  if (!res.ok) throw new Error("Failed to fetch items for download")
-  const data = await res.json()
-  return data.items as BulkJobItem[]
+function formatEta(batch: BulkBatch): string | null {
+  if (batch.status !== "running") return null
+  if (!batch.startedAt) return null
+  const completed = batch.successCount + batch.failedCount
+  if (completed === 0) return "Calculating…"
+  const elapsedMs = Date.now() - new Date(batch.startedAt).getTime()
+  const ratePerMs = completed / elapsedMs
+  const remaining = batch.totalUrls - completed
+  if (remaining <= 0) return null
+  const etaMs = remaining / ratePerMs
+  const s = Math.round(etaMs / 1000)
+  if (s < 60) return `~${s}s`
+  if (s < 3600) return `~${Math.round(s / 60)}m`
+  const h = Math.floor(s / 3600)
+  const m = Math.round((s % 3600) / 60)
+  return `~${h}h ${m}m`
 }
 
-function triggerCsvDownload(items: BulkJobItem[], jobName: string) {
+async function fetchAllItems(id: string): Promise<BulkBatchItem[]> {
+  const params = new URLSearchParams({ limit: "100000", offset: "0" })
+  const res = await fetch(`/api/v1/internal/tiktok/bulk-batches/${id}?${params}`)
+  if (!res.ok) throw new Error("Failed to fetch items for download")
+  const data = await res.json()
+  return data.items as BulkBatchItem[]
+}
+
+function triggerCsvDownload(items: BulkBatchItem[], fileName: string) {
   const headers = [
     "url", "status", "retry_count", "error",
     "plays", "likes", "comments", "shares", "saves", "reposts", "is_tiktok_shop",
@@ -95,7 +120,7 @@ function triggerCsvDownload(items: BulkJobItem[], jobName: string) {
   const url = URL.createObjectURL(blob)
   const a = document.createElement("a")
   a.href = url
-  a.download = `${jobName.replace(/\s+/g, "_")}_items.csv`
+  a.download = fileName
   a.click()
   URL.revokeObjectURL(url)
 }
@@ -104,20 +129,19 @@ export function BulkJobDetail({ id }: { id: string }) {
   const [page, setPage] = useState(0)
   const [statusFilter, setStatusFilter] = useState("all")
   const [downloading, setDownloading] = useState(false)
-  const retry = useRetryBulkJob()
 
-  const { data, isLoading, isError } = useBulkJobItems(id, {
+  const { data, isLoading, isError } = useBulkBatchItems(id, {
     status: statusFilter === "all" ? undefined : statusFilter,
     limit: PAGE_SIZE,
     offset: page * PAGE_SIZE,
   })
 
-  const job = data?.job
+  const batch = data?.batch
   const items = data?.items ?? []
   const total = data?.total ?? 0
   const totalPages = Math.ceil(total / PAGE_SIZE)
 
-  const columns = useMemo<ColumnDef<BulkJobItem>[]>(
+  const columns = useMemo<ColumnDef<BulkBatchItem>[]>(
     () => [
       {
         accessorKey: "url",
@@ -137,7 +161,9 @@ export function BulkJobDetail({ id }: { id: string }) {
       {
         accessorKey: "status",
         header: "Status",
-        cell: ({ row }) => <StatusBadge status={row.original.status} />,
+        cell: ({ row }) => (
+          <StatusBadge status={row.original.status} styles={STATUS_STYLES} />
+        ),
       },
       {
         accessorKey: "retryCount",
@@ -234,17 +260,23 @@ export function BulkJobDetail({ id }: { id: string }) {
   }
 
   async function handleDownload() {
-    if (!job) return
+    if (!batch) return
     setDownloading(true)
     try {
       const all = await fetchAllItems(id)
-      triggerCsvDownload(all, job.name)
+      const fileName = `${batch.uploadName.replace(/\s+/g, "_")}_batch${batch.batchNumber}.csv`
+      triggerCsvDownload(all, fileName)
     } catch {
       // silent — user can retry
     } finally {
       setDownloading(false)
     }
   }
+
+  const eta = batch ? formatEta(batch) : null
+  const inQueue = batch
+    ? Math.max(batch.dispatched - batch.successCount - batch.failedCount, 0)
+    : 0
 
   return (
     <Card className="bg-background border-none shadow-none ring-0 space-y-4">
@@ -255,48 +287,49 @@ export function BulkJobDetail({ id }: { id: string }) {
           className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground w-fit"
         >
           <ArrowLeft className="h-3.5 w-3.5" />
-          Back to Bulk Jobs
+          Back to Batches
         </Link>
 
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
           <div>
-            <h1 className="text-lg font-semibold truncate">{job?.name ?? "Loading…"}</h1>
-            {job && (
-              <div className="flex flex-wrap items-center gap-3 mt-1 text-sm">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-lg font-semibold truncate">{batch?.uploadName ?? "Loading…"}</h1>
+              {batch && <StatusBadge status={batch.status} styles={BATCH_STATUS_STYLES} />}
+            </div>
+            {batch && (
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Batch {batch.batchNumber}/{batch.totalBatches}
+              </p>
+            )}
+            {batch && (
+              <div className="flex flex-wrap items-center gap-3 mt-2 text-sm">
                 <span className="text-muted-foreground">
                   Total:{" "}
-                  <strong className="text-foreground">{job.totalUrls.toLocaleString()}</strong>
+                  <strong className="text-foreground">{batch.totalUrls.toLocaleString()}</strong>
                 </span>
                 <span className="text-muted-foreground">
                   Dispatched:{" "}
-                  <strong className="text-foreground">{job.processed.toLocaleString()}</strong>
+                  <strong className="text-foreground">{batch.dispatched.toLocaleString()}</strong>
                 </span>
                 <span className="text-green-600">
-                  Success: <strong>{job.successCount.toLocaleString()}</strong>
+                  Success: <strong>{batch.successCount.toLocaleString()}</strong>
                 </span>
                 <span className="text-destructive">
-                  Failed: <strong>{job.failedCount.toLocaleString()}</strong>
+                  Failed: <strong>{batch.failedCount.toLocaleString()}</strong>
                 </span>
-                <StatusBadge status={job.status} />
+                {inQueue > 0 && (
+                  <span className="text-primary">
+                    In Queue: <strong>{inQueue.toLocaleString()}</strong>
+                  </span>
+                )}
+                {eta && (
+                  <span className="text-muted-foreground">
+                    ETA: <strong className="text-foreground">{eta}</strong>
+                  </span>
+                )}
               </div>
             )}
           </div>
-
-          {job && job.failedCount > 0 && job.status !== "running" && (
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={retry.isPending}
-              onClick={() => retry.mutate(job.id)}
-            >
-              {retry.isPending ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <RefreshCw className="h-3.5 w-3.5" />
-              )}
-              Retry Failed ({job.failedCount.toLocaleString()})
-            </Button>
-          )}
         </div>
       </div>
 
@@ -319,7 +352,7 @@ export function BulkJobDetail({ id }: { id: string }) {
           size="sm"
           variant="outline"
           onClick={handleDownload}
-          disabled={downloading || !job}
+          disabled={downloading || !batch}
         >
           {downloading ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
