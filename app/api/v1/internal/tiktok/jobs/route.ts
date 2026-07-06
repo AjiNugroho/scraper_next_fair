@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/db/drizzle"
 import { tiktokHashtagRequest, tiktokJobHashtag } from "@/db/tiktok-schema"
-import { desc, count } from "drizzle-orm"
+import { desc, count, inArray } from "drizzle-orm"
 import { auth } from "@/lib/auth"
 import { z } from "zod"
 import { rebalance } from "@/lib/tiktok-rebalance"
@@ -80,4 +80,29 @@ export async function POST(req: NextRequest) {
   await rebalance()
 
   return NextResponse.json({ success: true }, { status: 201 })
+}
+
+const deleteSchema = z.object({
+  ids: z.array(z.string().uuid()).min(1),
+})
+
+export async function DELETE(req: NextRequest) {
+  const session = await auth.api.getSession({ headers: req.headers })
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  let body: unknown
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
+  }
+
+  const parsed = deleteSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.issues }, { status: 400 })
+  }
+
+  await db.delete(tiktokHashtagRequest).where(inArray(tiktokHashtagRequest.id, parsed.data.ids))
+
+  return NextResponse.json({ success: true })
 }

@@ -6,16 +6,20 @@ import {
   getCoreRowModel,
   flexRender,
   type ColumnDef,
+  type RowSelectionState,
 } from "@tanstack/react-table"
 import { ChevronLeft, ChevronRight, Loader2, Pencil, Trash2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Input } from "@/components/ui/input"
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog"
 import {
   Table,
@@ -27,8 +31,9 @@ import {
 } from "@/components/ui/table"
 
 import type { TiktokJobRequest } from "../datahooks/useTiktokJobs"
-import { useTiktokJobs } from "../datahooks/useTiktokJobs"
+import { useTiktokJobs, useDeleteTiktokJobs } from "../datahooks/useTiktokJobs"
 import { SubmitJobSheet } from "./SubmitJobSheet"
+import { ImportCsvDialog } from "./ImportCsvDialog"
 import { EditJobDialog } from "./EditJobDialog"
 import { DeleteJobDialog } from "./DeleteJobDialog"
 
@@ -81,6 +86,61 @@ function ExtrasDialog({
   )
 }
 
+function DeleteBulkDialog({
+  ids,
+  open,
+  onOpenChange,
+}: {
+  ids: string[]
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
+  const [confirm, setConfirm] = useState("")
+  const deleteMany = useDeleteTiktokJobs()
+
+  async function handleDelete() {
+    await deleteMany.mutateAsync(ids)
+    onOpenChange(false)
+    setConfirm("")
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        onOpenChange(v)
+        if (!v) setConfirm("")
+      }}
+    >
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>
+            Delete {ids.length} job{ids.length !== 1 ? "s" : ""}
+          </DialogTitle>
+          <DialogDescription>
+            This action cannot be undone. Type{" "}
+            <span className="font-mono font-semibold text-foreground">DELETE</span> to confirm.
+          </DialogDescription>
+        </DialogHeader>
+        <Input placeholder="DELETE" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button
+            variant="destructive"
+            disabled={confirm !== "DELETE" || deleteMany.isPending}
+            onClick={handleDelete}
+          >
+            {deleteMany.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+            Delete {ids.length} job{ids.length !== 1 ? "s" : ""}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 export function TiktokJobsManagement() {
   const [page, setPage] = useState(0)
   const [extrasDialog, setExtrasDialog] = useState<{
@@ -89,6 +149,8 @@ export function TiktokJobsManagement() {
   }>({ open: false, extras: null })
   const [editJob, setEditJob] = useState<TiktokJobRequest | null>(null)
   const [deleteJob, setDeleteJob] = useState<TiktokJobRequest | null>(null)
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
 
   const { data, isLoading, isError } = useTiktokJobs({
     limit: PAGE_SIZE,
@@ -98,10 +160,28 @@ export function TiktokJobsManagement() {
   const requests = data?.requests ?? []
   const total = data?.total ?? 0
   const totalPages = Math.ceil(total / PAGE_SIZE)
+  const selectedIds = Object.keys(rowSelection).filter((k) => rowSelection[k])
 
   const columns = useMemo<ColumnDef<TiktokJobRequest>[]>(
     () => [
-      
+      {
+        id: "select",
+        header: ({ table }) => (
+          <Checkbox
+            checked={table.getIsAllPageRowsSelected()}
+            onCheckedChange={(v: boolean) => table.toggleAllPageRowsSelected(v)}
+            aria-label="Select all"
+          />
+        ),
+        cell: ({ row }) => (
+          <Checkbox
+            checked={row.getIsSelected()}
+            onCheckedChange={(v: boolean) => row.toggleSelected(v)}
+            aria-label="Select row"
+          />
+        ),
+        size: 40,
+      },
       {
         accessorKey: "hashtag",
         header: "Hashtag",
@@ -204,12 +284,27 @@ export function TiktokJobsManagement() {
     getCoreRowModel: getCoreRowModel(),
     manualPagination: true,
     rowCount: total,
+    getRowId: (row) => row.id,
+    state: { rowSelection },
+    onRowSelectionChange: setRowSelection,
+    enableRowSelection: true,
   })
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
-        <SubmitJobSheet />
+      <div className="flex justify-between gap-2">
+        {selectedIds.length > 0 ? (
+          <Button variant="destructive" size="sm" onClick={() => setBulkDeleteOpen(true)}>
+            <Trash2 className="h-3.5 w-3.5" />
+            Delete {selectedIds.length} selected
+          </Button>
+        ) : (
+          <div />
+        )}
+        <div className="flex gap-2">
+          <ImportCsvDialog />
+          <SubmitJobSheet />
+        </div>
       </div>
 
       <div className="rounded-md border">
@@ -275,7 +370,10 @@ export function TiktokJobsManagement() {
             variant="outline"
             size="icon"
             className="h-8 w-8"
-            onClick={() => setPage((p) => p - 1)}
+            onClick={() => {
+              setPage((p) => p - 1)
+              setRowSelection({})
+            }}
             disabled={page === 0}
           >
             <ChevronLeft className="h-4 w-4" />
@@ -287,7 +385,10 @@ export function TiktokJobsManagement() {
             variant="outline"
             size="icon"
             className="h-8 w-8"
-            onClick={() => setPage((p) => p + 1)}
+            onClick={() => {
+              setPage((p) => p + 1)
+              setRowSelection({})
+            }}
             disabled={page >= totalPages - 1}
           >
             <ChevronRight className="h-4 w-4" />
@@ -311,6 +412,15 @@ export function TiktokJobsManagement() {
         job={deleteJob}
         open={deleteJob !== null}
         onOpenChange={(open) => { if (!open) setDeleteJob(null) }}
+      />
+
+      <DeleteBulkDialog
+        ids={selectedIds}
+        open={bulkDeleteOpen}
+        onOpenChange={(open) => {
+          setBulkDeleteOpen(open)
+          if (!open) setRowSelection({})
+        }}
       />
     </div>
   )

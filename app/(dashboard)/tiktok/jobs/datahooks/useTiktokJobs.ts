@@ -91,6 +91,29 @@ export function useDeleteTiktokJob() {
   })
 }
 
+export function useDeleteTiktokJobs() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (ids: string[]) => {
+      const res = await fetch("/api/v1/internal/tiktok/jobs", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error((err as { error?: string }).error ?? "Failed to delete jobs")
+      }
+      return res.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: JOBS_KEY })
+      toast.success("Selected jobs deleted")
+    },
+    onError: (error: Error) => toast.error(error.message),
+  })
+}
+
 export function useSubmitTiktokJob() {
   const queryClient = useQueryClient()
   return useMutation({
