@@ -52,8 +52,38 @@ export const tiktokScrapeJobRun = pgTable("tiktok_scrape_job_run", {
   completedAt: timestamp("completed_at"),
   batchesSent: integer("batches_sent").notNull().default(0),
   videoUrlsCount: integer("video_urls_count").notNull().default(0),
-  status: text("status").notNull().default("running"), // "running" | "done" | "failed"
+  status: text("status").notNull().default("running"), // "running" | "done" | "partial" | "failed"
 })
+
+export const tiktokScrapeJobRunBatch = pgTable(
+  "tiktok_scrape_job_run_batch",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    jobRunId: uuid("job_run_id")
+      .notNull()
+      .references(() => tiktokScrapeJobRun.id, { onDelete: "cascade" }),
+    requestId: uuid("request_id")
+      .notNull()
+      .references(() => tiktokHashtagRequest.id, { onDelete: "cascade" }),
+    hashtag: text("hashtag").notNull(),
+    webhookUrl: text("webhook_url").notNull(),
+    urls: jsonb("urls").$type<string[]>().notNull(),
+    urlCount: integer("url_count").notNull(),
+    status: text("status").notNull().default("pending"), // pending | sent | failed
+    attempts: integer("attempts").notNull().default(0),
+    error: text("error"),
+    sentAt: timestamp("sent_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("tiktok_scrape_job_run_batch_job_run_id_idx").on(table.jobRunId),
+    index("tiktok_scrape_job_run_batch_status_idx").on(table.status),
+  ],
+)
 
 export const tiktokBulkBatch = pgTable("tiktok_bulk_batch", {
   id: uuid("id").primaryKey().defaultRandom(),

@@ -1,7 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { useScrapeJobs, useTriggerScrapeJob } from "../datahooks/useScrapeJobs"
+import Link from "next/link"
+import { useScrapeJobs, useTriggerScrapeJob, type ScrapeJobRun } from "../datahooks/useScrapeJobs"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -21,20 +22,12 @@ import {
   flexRender,
 } from "@tanstack/react-table"
 
-type ScrapeJobRun = {
-  id: string
-  startedAt: string
-  completedAt: string | null
-  batchesSent: number
-  videoUrlsCount: number
-  status: string
-}
-
 const PAGE_SIZE = 20
 
 function StatusBadge({ status }: { status: string }) {
   if (status === "done") return <Badge variant="default">Done</Badge>
   if (status === "running") return <Badge variant="secondary">Running</Badge>
+  if (status === "partial") return <Badge variant="outline">Partial</Badge>
   return <Badge variant="destructive">Failed</Badge>
 }
 
@@ -55,7 +48,11 @@ const columns: ColumnDef<ScrapeJobRun>[] = [
   {
     accessorKey: "startedAt",
     header: "Started At",
-    cell: ({ row }) => formatDate(row.original.startedAt),
+    cell: ({ row }) => (
+      <Link href={`/tiktok/scrape-jobs/${row.original.id}`} className="hover:underline">
+        {formatDate(row.original.startedAt)}
+      </Link>
+    ),
   },
   {
     accessorKey: "completedAt",

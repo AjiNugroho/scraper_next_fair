@@ -64,6 +64,13 @@
       "when": 1782315412675,
       "tag": "0008_bulk_batch_redesign",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1783957331461,
+      "tag": "0009_short_doorman",
+      "breakpoints": true
     }
   ]
 }
