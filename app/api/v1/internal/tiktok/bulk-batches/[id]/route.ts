@@ -43,6 +43,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         statsSaves: tiktokBulkVideoResult.statsSaves,
         statsReposts: tiktokBulkVideoResult.statsReposts,
         isTiktokShop: sql<boolean>`${tiktokBulkVideoResult.product} IS NOT NULL`,
+        productDetail: tiktokBulkVideoResult.product,
       })
       .from(tiktokBulkBatchItem)
       .leftJoin(tiktokBulkVideoResult, eq(tiktokBulkVideoResult.itemId, tiktokBulkBatchItem.id))

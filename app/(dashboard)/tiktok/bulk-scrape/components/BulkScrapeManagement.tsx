@@ -88,7 +88,7 @@ function triggerCsvDownload(items: BulkBatchItem[], fileName: string) {
   const headers = [
     "url", "status", "retry_count", "error",
     "plays", "likes", "comments", "shares", "saves", "reposts", "is_tiktok_shop",
-    "created_at", "updated_at",
+    "product_detail", "created_at", "updated_at",
   ]
   const rows = items.map((item) =>
     [
@@ -103,6 +103,7 @@ function triggerCsvDownload(items: BulkBatchItem[], fileName: string) {
       item.statsSaves ?? "",
       item.statsReposts ?? "",
       item.isTiktokShop,
+      item.productDetail ? JSON.stringify(item.productDetail) : "",
       item.createdAt,
       item.updatedAt,
     ]

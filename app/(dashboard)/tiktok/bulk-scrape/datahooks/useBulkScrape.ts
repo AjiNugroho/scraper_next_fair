@@ -32,6 +32,7 @@ export type BulkBatchItem = {
   statsSaves: number | null
   statsReposts: number | null
   isTiktokShop: boolean
+  productDetail: Record<string, unknown> | null
 }
 
 const BATCHES_KEY = ["tiktok-bulk-batches"] as const
