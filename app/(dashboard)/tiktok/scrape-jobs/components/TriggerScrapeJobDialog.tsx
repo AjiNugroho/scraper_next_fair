@@ -1,10 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { Play, Loader2, ChevronLeft } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Input } from "@/components/ui/input"
 import {
   Field,
   FieldSet,
@@ -38,6 +39,7 @@ export function TriggerScrapeJobDialog() {
   const [uncheckedHashtags, setUncheckedHashtags] = useState<Set<string>>(new Set())
   const [customRange, setCustomRange] = useState(false)
   const [range, setRange] = useState<DateRange | undefined>(undefined)
+  const [hashtagSearch, setHashtagSearch] = useState("")
   const [preview, setPreview] = useState<{
     filters: ScrapeJobTriggerFilters
     videoUrlsCount: number
@@ -48,7 +50,14 @@ export function TriggerScrapeJobDialog() {
   } | null>(null)
 
   const { data: hashtagsData, isLoading: hashtagsLoading } = useEligibleHashtags()
-  const allHashtags = hashtagsData?.hashtags ?? []
+  const allHashtags = useMemo(
+    () => [...(hashtagsData?.hashtags ?? [])].sort((a, b) => a.localeCompare(b)),
+    [hashtagsData],
+  )
+  const visibleHashtags = useMemo(
+    () => allHashtags.filter((h) => h.toLowerCase().includes(hashtagSearch.trim().toLowerCase())),
+    [allHashtags, hashtagSearch],
+  )
   const previewJob = usePreviewScrapeJob()
   const triggerJob = useTriggerScrapeJob()
 
@@ -58,6 +67,7 @@ export function TriggerScrapeJobDialog() {
     setUncheckedHashtags(new Set())
     setCustomRange(false)
     setRange(undefined)
+    setHashtagSearch("")
   }
 
   function toggleAll(checked: boolean) {
@@ -192,19 +202,31 @@ export function TriggerScrapeJobDialog() {
                     No hashtag requests have a webhook configured yet — nothing to trigger.
                   </p>
                 ) : (
-                  <FieldGroup className="max-h-64 overflow-y-auto rounded-md border p-2 gap-1">
-                    {allHashtags.map((hashtag) => (
-                      <FieldLabel key={hashtag} className="border-none p-1">
-                        <Field orientation="horizontal">
-                          <Checkbox
-                            checked={!uncheckedHashtags.has(hashtag)}
-                            onCheckedChange={(v) => toggleHashtag(hashtag, !!v)}
-                          />
-                          <span className="text-sm">#{hashtag}</span>
-                        </Field>
-                      </FieldLabel>
-                    ))}
-                  </FieldGroup>
+                  <>
+                    <Input
+                      placeholder="Search hashtags…"
+                      value={hashtagSearch}
+                      onChange={(e) => setHashtagSearch(e.target.value)}
+                      className="h-8"
+                    />
+                    <FieldGroup className="max-h-64 overflow-y-auto rounded-md border p-2 gap-1">
+                      {visibleHashtags.length === 0 ? (
+                        <p className="text-sm text-muted-foreground p-1">No hashtags match.</p>
+                      ) : (
+                        visibleHashtags.map((hashtag) => (
+                          <FieldLabel key={hashtag} className="border-none p-1">
+                            <Field orientation="horizontal">
+                              <Checkbox
+                                checked={!uncheckedHashtags.has(hashtag)}
+                                onCheckedChange={(v) => toggleHashtag(hashtag, !!v)}
+                              />
+                              <span className="text-sm">#{hashtag}</span>
+                            </Field>
+                          </FieldLabel>
+                        ))
+                      )}
+                    </FieldGroup>
+                  </>
                 )}
               </FieldSet>
 
