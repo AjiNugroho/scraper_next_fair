@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { useScrapeJobs, type ScrapeJobRun } from "../datahooks/useScrapeJobs"
 import { TriggerScrapeJobDialog } from "./TriggerScrapeJobDialog"
 import { Button } from "@/components/ui/button"
@@ -63,7 +63,12 @@ function HashtagsCell({ hashtags }: { hashtags: string[] | null }) {
       {remaining > 0 && (
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 px-2 text-xs"
+              onClick={(e) => e.stopPropagation()}
+            >
               +{remaining} more
             </Button>
           </PopoverTrigger>
@@ -91,11 +96,7 @@ const columns: ColumnDef<ScrapeJobRun>[] = [
   {
     accessorKey: "startedAt",
     header: "Started At",
-    cell: ({ row }) => (
-      <Link href={`/tiktok/scrape-jobs/${row.original.id}`} className="hover:underline">
-        {formatDate(row.original.startedAt)}
-      </Link>
-    ),
+    cell: ({ row }) => formatDate(row.original.startedAt),
   },
   {
     accessorKey: "completedAt",
@@ -137,6 +138,7 @@ const columns: ColumnDef<ScrapeJobRun>[] = [
 ]
 
 export function ScrapeJobsTable() {
+  const router = useRouter()
   const [page, setPage] = useState(0)
   const { data, isLoading, refetch, isFetching } = useScrapeJobs(page, PAGE_SIZE)
 
@@ -200,7 +202,11 @@ export function ScrapeJobsTable() {
               </TableRow>
             ) : (
               table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id}>
+                <TableRow
+                  key={row.id}
+                  className="cursor-pointer"
+                  onClick={() => router.push(`/tiktok/scrape-jobs/${row.original.id}`)}
+                >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
