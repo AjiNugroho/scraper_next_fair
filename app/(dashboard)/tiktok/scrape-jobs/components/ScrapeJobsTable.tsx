@@ -15,6 +15,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import { RefreshCw } from "lucide-react"
 import {
   useReactTable,
@@ -45,6 +50,43 @@ function duration(start: string, end: string | null) {
   return `${Math.floor(s / 60)}m ${s % 60}s`
 }
 
+function HashtagsCell({ hashtags }: { hashtags: string[] | null }) {
+  if (hashtags === null) return <Badge variant="outline">All</Badge>
+  if (hashtags.length === 0) return <span className="text-muted-foreground">—</span>
+
+  const preview = hashtags.slice(0, 2).join(", #")
+  const remaining = hashtags.length - 2
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="text-sm">#{preview}</span>
+      {remaining > 0 && (
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
+              +{remaining} more
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-64 max-h-64 overflow-y-auto">
+            <div className="flex flex-wrap gap-1">
+              {hashtags.map((h) => (
+                <Badge key={h} variant="outline">
+                  #{h}
+                </Badge>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
+      )}
+    </div>
+  )
+}
+
+function dateRangeLabel(from: string | null, to: string | null) {
+  if (!from || !to) return "Since last run"
+  return `${formatDate(from)} – ${formatDate(to)}`
+}
+
 const columns: ColumnDef<ScrapeJobRun>[] = [
   {
     accessorKey: "startedAt",
@@ -64,6 +106,20 @@ const columns: ColumnDef<ScrapeJobRun>[] = [
     id: "duration",
     header: "Duration",
     cell: ({ row }) => duration(row.original.startedAt, row.original.completedAt),
+  },
+  {
+    id: "hashtags",
+    header: "Hashtags",
+    cell: ({ row }) => <HashtagsCell hashtags={row.original.filterHashtags} />,
+  },
+  {
+    id: "dateRange",
+    header: "Date Range",
+    cell: ({ row }) => (
+      <span className="text-sm whitespace-nowrap">
+        {dateRangeLabel(row.original.filterFrom, row.original.filterTo)}
+      </span>
+    ),
   },
   {
     accessorKey: "videoUrlsCount",

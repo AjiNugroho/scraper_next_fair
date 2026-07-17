@@ -10,6 +10,9 @@ export type ScrapeJobRun = {
   batchesSent: number
   videoUrlsCount: number
   status: string
+  filterHashtags: string[] | null
+  filterFrom: string | null
+  filterTo: string | null
 }
 
 export type ScrapeJobRunBatch = {
