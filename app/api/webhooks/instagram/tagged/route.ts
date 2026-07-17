@@ -77,6 +77,7 @@ export async function POST(req: NextRequest) {
     statusCode,
     responseBody,
     errorMessage,
+    payload: clientWebhook && errorMessage ? payload : null,
   }).catch((err) => console.error("[webhook] log insert failed:", err))
 
   // Update the originating request status to done.

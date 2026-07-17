@@ -8,7 +8,7 @@ import {
   flexRender,
   type ColumnDef,
 } from "@tanstack/react-table"
-import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react"
+import { ChevronLeft, ChevronRight, Loader2, RotateCcw } from "lucide-react"
 import type { DateRange } from "react-day-picker"
 
 import { Button } from "@/components/ui/button"
@@ -31,7 +31,7 @@ import {
 import { DateRangePicker } from "@/components/date-range-picker"
 
 import type { WebhookLogItem } from "../datahooks/useWebhookLog"
-import { useWebhookLog } from "../datahooks/useWebhookLog"
+import { useWebhookLog, useRetryWebhookDelivery } from "../datahooks/useWebhookLog"
 
 const PAGE_SIZE = 10
 
@@ -68,6 +68,8 @@ export function WebhookLogTable() {
   const logs = data?.logs ?? []
   const total = data?.total ?? 0
   const totalPages = Math.ceil(total / PAGE_SIZE)
+
+  const retryDelivery = useRetryWebhookDelivery()
 
   function handleDateChange(range: DateRange | undefined) {
     setDateRange(range)
@@ -110,7 +112,16 @@ export function WebhookLogTable() {
       {
         accessorKey: "statusCode",
         header: "Status",
-        cell: ({ row }) => <StatusCodeBadge code={row.original.statusCode} />,
+        cell: ({ row }) => (
+          <div className="flex items-center gap-2">
+            <StatusCodeBadge code={row.original.statusCode} />
+            {row.original.retryCount > 0 && (
+              <span className="text-xs text-muted-foreground">
+                Retried {row.original.retryCount}×
+              </span>
+            )}
+          </div>
+        ),
       },
       {
         accessorKey: "clientWebhook",
@@ -149,8 +160,33 @@ export function WebhookLogTable() {
           )
         },
       },
+      {
+        id: "retry",
+        header: "",
+        cell: ({ row }) => {
+          if (!row.original.errorMessage || !row.original.retryable) return null
+          const isRetryingThis =
+            retryDelivery.isPending && retryDelivery.variables === row.original.id
+          return (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => retryDelivery.mutate(row.original.id)}
+              disabled={retryDelivery.isPending}
+            >
+              {isRetryingThis ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <RotateCcw className="h-3.5 w-3.5" />
+              )}
+              Retry
+            </Button>
+          )
+        },
+      },
     ],
-    [],
+    [retryDelivery],
   )
 
   const table = useReactTable({

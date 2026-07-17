@@ -33,6 +33,8 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  const outgoingPayload = { data: rawBody, extras }
+
   let statusCode: number | null = null
   let responseBody: string | null = null
   let errorMessage: string | null = null
@@ -42,7 +44,7 @@ export async function POST(req: NextRequest) {
       const clientRes = await fetch(clientWebhook, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ data: rawBody, extras }),
+        body: JSON.stringify(outgoingPayload),
       })
       statusCode = clientRes.status
       responseBody = await clientRes.text()
@@ -68,6 +70,7 @@ export async function POST(req: NextRequest) {
       statusCode,
       responseBody,
       errorMessage,
+      payload: clientWebhook && errorMessage ? outgoingPayload : null,
     })
     .catch((err) => console.error("[webhook/tiktok/hashtag] log insert failed:", err))
 
