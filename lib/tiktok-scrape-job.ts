@@ -5,13 +5,26 @@ import {
   tiktokScrapeJobRun,
   tiktokScrapeJobRunBatch,
 } from "@/db/tiktok-schema"
-import { and, eq, gt, lte, isNotNull, inArray, max } from "drizzle-orm"
+import { and, eq, gt, lte, isNotNull, inArray, max, count } from "drizzle-orm"
+import { z } from "zod"
 import { scrapeVideosByUrl } from "@/lib/brightdata"
 
-const BATCH_SIZE = 50
+export const BATCH_SIZE = 50
 const WEBHOOK_BASE = process.env.BETTER_AUTH_URL ?? ""
 
 type ScrapeJobRunBatch = typeof tiktokScrapeJobRunBatch.$inferSelect
+
+export const scrapeJobFilterSchema = z.object({
+  hashtags: z.array(z.string()).nullable().optional(),
+  from: z.iso.datetime().nullable().optional(),
+  to: z.iso.datetime().nullable().optional(),
+})
+
+export type ScrapeJobFilters = {
+  hashtags?: string[] | null
+  from?: Date | null
+  to?: Date | null
+}
 
 function chunk<T>(arr: T[], size: number): T[][] {
   const result: T[][] = []
@@ -19,6 +32,34 @@ function chunk<T>(arr: T[], size: number): T[][] {
     result.push(arr.slice(i, i + size))
   }
   return result
+}
+
+async function resolveWindow(filters?: ScrapeJobFilters): Promise<{ from: Date; to: Date }> {
+  const to = filters?.to ?? new Date()
+  if (filters?.from) return { from: filters.from, to }
+
+  // Cursor: last run that got far enough to claim its URL window (done or partial),
+  // excluding custom/filtered runs — those only cover a subset of hashtags or a
+  // one-off window, so they must never move the shared cursor forward.
+  const [lastClaimed] = await db
+    .select({ lastRunAt: max(tiktokScrapeJobRun.startedAt) })
+    .from(tiktokScrapeJobRun)
+    .where(
+      and(inArray(tiktokScrapeJobRun.status, ["done", "partial"]), eq(tiktokScrapeJobRun.isCustom, false)),
+    )
+
+  return { from: lastClaimed?.lastRunAt ?? new Date(0), to }
+}
+
+async function resolveEligibleRequests(hashtags?: string[] | null) {
+  const conditions = [isNotNull(tiktokHashtagRequest.webhookUrl)]
+  if (hashtags && hashtags.length > 0) {
+    conditions.push(inArray(tiktokHashtagRequest.hashtag, hashtags))
+  }
+  return db
+    .select()
+    .from(tiktokHashtagRequest)
+    .where(and(...conditions))
 }
 
 async function dispatchBatchRow(row: ScrapeJobRunBatch): Promise<void> {
@@ -57,43 +98,74 @@ async function recomputeJobRunStatus(jobRunId: string): Promise<void> {
     .where(eq(tiktokScrapeJobRun.id, jobRunId))
 }
 
-export async function runTiktokScrapeJob(): Promise<{ batchesSent: number; videoUrlsCount: number }> {
-  // Record this run start — also acts as the cursor for next run
+export async function previewTiktokScrapeJob(filters?: ScrapeJobFilters): Promise<{
+  from: Date
+  to: Date
+  hashtagsCount: number
+  videoUrlsCount: number
+  estimatedBatches: number
+}> {
+  const { from, to } = await resolveWindow(filters)
+  const requests = await resolveEligibleRequests(filters?.hashtags)
+
+  let videoUrlsCount = 0
+  for (const request of requests) {
+    const [{ total }] = await db
+      .select({ total: count() })
+      .from(tiktokHashtagVideoResult)
+      .where(
+        and(
+          eq(tiktokHashtagVideoResult.hashtag, request.hashtag),
+          gt(tiktokHashtagVideoResult.createdAt, from),
+          lte(tiktokHashtagVideoResult.createdAt, to),
+        ),
+      )
+    videoUrlsCount += total
+  }
+
+  return {
+    from,
+    to,
+    hashtagsCount: requests.length,
+    videoUrlsCount,
+    estimatedBatches: Math.ceil(videoUrlsCount / BATCH_SIZE),
+  }
+}
+
+export async function runTiktokScrapeJob(
+  filters?: ScrapeJobFilters,
+): Promise<{ batchesSent: number; videoUrlsCount: number }> {
+  const isCustom = !!(filters?.hashtags || filters?.from || filters?.to)
+  const { from, to } = await resolveWindow(filters)
+
+  // Record this run start — a non-custom run also acts as the cursor for the next default run
   const [jobRun] = await db
     .insert(tiktokScrapeJobRun)
-    .values({ status: "running" })
+    .values({
+      status: "running",
+      isCustom,
+      filterHashtags: filters?.hashtags ?? null,
+      filterFrom: filters?.from ?? null,
+      filterTo: filters?.to ?? null,
+    })
     .returning()
 
-  const thisRunStartedAt = jobRun.startedAt
-
   try {
-    // Cursor: find the startedAt of the last run that got far enough to claim its URL window
-    // (done or partial — a fully-failed run never created batch rows, so it's safe to retry naturally)
-    const [lastClaimed] = await db
-      .select({ lastRunAt: max(tiktokScrapeJobRun.startedAt) })
-      .from(tiktokScrapeJobRun)
-      .where(inArray(tiktokScrapeJobRun.status, ["done", "partial"]))
-
-    const lastRunAt = lastClaimed?.lastRunAt ?? new Date(0)
-
-    // All requests that have a webhook to notify
-    const requests = await db
-      .select()
-      .from(tiktokHashtagRequest)
-      .where(isNotNull(tiktokHashtagRequest.webhookUrl))
+    // All requests that have a webhook to notify (optionally restricted to selected hashtags)
+    const requests = await resolveEligibleRequests(filters?.hashtags)
 
     const batchRows: ScrapeJobRunBatch[] = []
 
     for (const request of requests) {
-      // Video URLs collected since the last claimed run and before this run started
+      // Video URLs collected within the resolved window
       const rows = await db
         .select({ videoUrl: tiktokHashtagVideoResult.videoUrl })
         .from(tiktokHashtagVideoResult)
         .where(
           and(
             eq(tiktokHashtagVideoResult.hashtag, request.hashtag),
-            gt(tiktokHashtagVideoResult.createdAt, lastRunAt),
-            lte(tiktokHashtagVideoResult.createdAt, thisRunStartedAt),
+            gt(tiktokHashtagVideoResult.createdAt, from),
+            lte(tiktokHashtagVideoResult.createdAt, to),
           ),
         )
 

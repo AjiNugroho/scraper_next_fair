@@ -2,7 +2,8 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { useScrapeJobs, useTriggerScrapeJob, type ScrapeJobRun } from "../datahooks/useScrapeJobs"
+import { useScrapeJobs, type ScrapeJobRun } from "../datahooks/useScrapeJobs"
+import { TriggerScrapeJobDialog } from "./TriggerScrapeJobDialog"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -14,7 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Play, RefreshCw } from "lucide-react"
+import { RefreshCw } from "lucide-react"
 import {
   useReactTable,
   getCoreRowModel,
@@ -82,7 +83,6 @@ const columns: ColumnDef<ScrapeJobRun>[] = [
 export function ScrapeJobsTable() {
   const [page, setPage] = useState(0)
   const { data, isLoading, refetch, isFetching } = useScrapeJobs(page, PAGE_SIZE)
-  const trigger = useTriggerScrapeJob()
 
   const table = useReactTable({
     data: data?.runs ?? [],
@@ -108,14 +108,7 @@ export function ScrapeJobsTable() {
             <RefreshCw className={`h-4 w-4 mr-2 ${isFetching ? "animate-spin" : ""}`} />
             Refresh
           </Button>
-          <Button
-            size="sm"
-            onClick={() => trigger.mutate()}
-            disabled={trigger.isPending}
-          >
-            <Play className={`h-4 w-4 mr-2 ${trigger.isPending ? "animate-pulse" : ""}`} />
-            {trigger.isPending ? "Running…" : "Trigger Now"}
-          </Button>
+          <TriggerScrapeJobDialog />
         </div>
       </div>
 

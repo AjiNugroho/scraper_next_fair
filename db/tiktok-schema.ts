@@ -53,6 +53,10 @@ export const tiktokScrapeJobRun = pgTable("tiktok_scrape_job_run", {
   batchesSent: integer("batches_sent").notNull().default(0),
   videoUrlsCount: integer("video_urls_count").notNull().default(0),
   status: text("status").notNull().default("running"), // "running" | "done" | "partial" | "failed"
+  isCustom: boolean("is_custom").notNull().default(false),
+  filterHashtags: jsonb("filter_hashtags").$type<string[] | null>(),
+  filterFrom: timestamp("filter_from"),
+  filterTo: timestamp("filter_to"),
 })
 
 export const tiktokScrapeJobRunBatch = pgTable(

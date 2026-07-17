@@ -72,11 +72,60 @@ export function useScrapeJobRun(
   })
 }
 
+export type ScrapeJobTriggerFilters = {
+  hashtags: string[] | null
+  from: string | null
+  to: string | null
+}
+
+export type ScrapeJobPreview = {
+  from: string
+  to: string
+  hashtagsCount: number
+  videoUrlsCount: number
+  estimatedBatches: number
+}
+
+export function useEligibleHashtags() {
+  return useQuery<{ hashtags: string[] }>({
+    queryKey: [...RUNS_KEY, "hashtags"],
+    queryFn: async () => {
+      const res = await fetch("/api/v1/internal/tiktok/trigger-video-scrape/hashtags")
+      if (!res.ok) throw new Error("Failed to fetch hashtags")
+      return res.json()
+    },
+  })
+}
+
+export function usePreviewScrapeJob() {
+  return useMutation({
+    mutationFn: async (filters: ScrapeJobTriggerFilters) => {
+      const res = await fetch("/api/v1/internal/tiktok/trigger-video-scrape/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(filters),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error ?? "Preview failed")
+      }
+      return res.json() as Promise<ScrapeJobPreview>
+    },
+    onError: (err: Error) => {
+      toast.error(err.message)
+    },
+  })
+}
+
 export function useTriggerScrapeJob() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async () => {
-      const res = await fetch("/api/v1/internal/tiktok/trigger-video-scrape", { method: "POST" })
+    mutationFn: async (filters: ScrapeJobTriggerFilters) => {
+      const res = await fetch("/api/v1/internal/tiktok/trigger-video-scrape", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(filters),
+      })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
         throw new Error(body.error ?? "Trigger failed")

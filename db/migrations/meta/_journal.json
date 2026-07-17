@@ -71,6 +71,13 @@
       "when": 1783957331461,
       "tag": "0009_short_doorman",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1784205313739,
+      "tag": "0010_dear_masque",
+      "breakpoints": true
     }
   ]
 }
