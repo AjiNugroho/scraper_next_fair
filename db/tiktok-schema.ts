@@ -89,6 +89,50 @@ export const tiktokScrapeJobRunBatch = pgTable(
   ],
 )
 
+export const tiktokPhylloScrapeJobRun = pgTable("tiktok_phyllo_scrape_job_run", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+  itemsSent: integer("items_sent").notNull().default(0),
+  videoUrlsCount: integer("video_urls_count").notNull().default(0),
+  status: text("status").notNull().default("running"), // "running" | "done" | "partial" | "failed"
+  isCustom: boolean("is_custom").notNull().default(false),
+  filterHashtags: jsonb("filter_hashtags").$type<string[] | null>(),
+  filterFrom: timestamp("filter_from"),
+  filterTo: timestamp("filter_to"),
+})
+
+export const tiktokPhylloScrapeJobRunItem = pgTable(
+  "tiktok_phyllo_scrape_job_run_item",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    jobRunId: uuid("job_run_id")
+      .notNull()
+      .references(() => tiktokPhylloScrapeJobRun.id, { onDelete: "cascade" }),
+    requestId: uuid("request_id")
+      .notNull()
+      .references(() => tiktokHashtagRequest.id, { onDelete: "cascade" }),
+    hashtag: text("hashtag").notNull(),
+    webhookUrl: text("webhook_url").notNull(),
+    url: text("url").notNull(),
+    callbackId: text("callback_id").notNull().unique(),
+    providerJobId: text("provider_job_id"),
+    status: text("status").notNull().default("pending"), // pending | sent | failed
+    attempts: integer("attempts").notNull().default(0),
+    error: text("error"),
+    sentAt: timestamp("sent_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("tiktok_phyllo_scrape_job_run_item_job_run_id_idx").on(table.jobRunId),
+    index("tiktok_phyllo_scrape_job_run_item_status_idx").on(table.status),
+  ],
+)
+
 export const tiktokBulkBatch = pgTable("tiktok_bulk_batch", {
   id: uuid("id").primaryKey().defaultRandom(),
   uploadName: text("upload_name").notNull(),
