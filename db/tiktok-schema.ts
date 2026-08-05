@@ -133,6 +133,45 @@ export const tiktokPhylloScrapeJobRunItem = pgTable(
   ],
 )
 
+// One-off end-to-end test of a single video URL against a provider. Deliberately
+// decoupled from tiktok_hashtag_request so test traffic never enters the real
+// scrape jobs (which pick up any request row that has a webhook_url).
+export const tiktokScraperTestRun = pgTable(
+  "tiktok_scraper_test_run",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    provider: text("provider").notNull(), // "phyllo" | "brightdata"
+    videoUrl: text("video_url").notNull(),
+    clientWebhookUrl: text("client_webhook_url").notNull(),
+    extras: jsonb("extras").$type<Record<string, unknown>>(),
+    // Correlates the provider callback back to this row: phyllo echoes it as
+    // callback_id, Bright Data gets it as a ?test_id= query param on the endpoint.
+    callbackId: text("callback_id").notNull().unique(),
+    providerWebhookUrl: text("provider_webhook_url").notNull(),
+    // pending | sent | dispatch_failed | delivered | delivery_failed
+    status: text("status").notNull().default("pending"),
+    dispatchError: text("dispatch_error"),
+    providerJobId: text("provider_job_id"),
+    providerPayload: jsonb("provider_payload"),
+    forwardedPayload: jsonb("forwarded_payload"),
+    clientStatusCode: integer("client_status_code"),
+    clientResponseBody: text("client_response_body"),
+    clientError: text("client_error"),
+    sentAt: timestamp("sent_at"),
+    receivedAt: timestamp("received_at"),
+    deliveredAt: timestamp("delivered_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("tiktok_scraper_test_run_status_idx").on(table.status),
+    index("tiktok_scraper_test_run_created_at_idx").on(table.createdAt),
+  ],
+)
+
 export const tiktokBulkBatch = pgTable("tiktok_bulk_batch", {
   id: uuid("id").primaryKey().defaultRandom(),
   uploadName: text("upload_name").notNull(),
