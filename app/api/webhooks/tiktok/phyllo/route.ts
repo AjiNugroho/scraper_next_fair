@@ -3,6 +3,7 @@ import { db } from "@/db/drizzle"
 import { tiktokHashtagRequest, tiktokPhylloScrapeJobRunItem } from "@/db/tiktok-schema"
 import { webhookDeliveryLog } from "@/db/scraper-schema"
 import { eq } from "drizzle-orm"
+import { formatPhylloVideos } from "@/lib/tiktok-data-formatter"
 
 export async function POST(req: NextRequest) {
   let rawBody: unknown
@@ -14,8 +15,10 @@ export async function POST(req: NextRequest) {
 
   const body = rawBody as { callback_id?: string; job_id?: string; data?: unknown[] }
   const callbackId = body.callback_id ?? null
-  const data = Array.isArray(body.data) ? body.data : []
-  const totalCount = data.length
+  const rawData = Array.isArray(body.data) ? body.data : []
+  // Reshaped into the Bright Data dataset type so clients get one payload shape
+  const data = formatPhylloVideos(rawData)
+  const totalCount = rawData.length
 
   let clientWebhook: string | null = null
   let extras: Record<string, unknown> = {}
@@ -84,7 +87,7 @@ export async function POST(req: NextRequest) {
       accountName: null,
       clientWebhook,
       totalCount,
-      validCount: totalCount,
+      validCount: data.length,
       statusCode,
       responseBody,
       errorMessage,

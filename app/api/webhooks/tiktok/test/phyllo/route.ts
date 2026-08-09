@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { forwardScraperTestResult } from "@/lib/tiktok-scraper-test"
+import { formatPhylloVideos } from "@/lib/tiktok-data-formatter"
 
 /**
  * Test-mode twin of /api/webhooks/tiktok/phyllo — same payload contract, but the
@@ -16,7 +17,8 @@ export async function POST(req: NextRequest) {
 
   const body = rawBody as { callback_id?: string; job_id?: string; data?: unknown[] }
   const callbackId = body.callback_id ?? null
-  const data = Array.isArray(body.data) ? body.data : []
+  const rawData = Array.isArray(body.data) ? body.data : []
+  const data = formatPhylloVideos(rawData)
 
   if (!callbackId) {
     return NextResponse.json({ success: false, error: "Missing callback_id" }, { status: 400 })
@@ -33,5 +35,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: "Unknown callback_id" }, { status: 404 })
   }
 
-  return NextResponse.json({ success: true, received: data.length })
+  return NextResponse.json({ success: true, received: rawData.length })
 }
