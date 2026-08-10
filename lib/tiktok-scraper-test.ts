@@ -79,17 +79,20 @@ export async function createScraperTestRun(input: ScraperTestInput): Promise<Scr
 
 /**
  * Handles a provider callback for a test run: records the raw payload, then relays
- * it to the tester-supplied client webhook using the exact `{ data, extras }` shape
- * the production webhook routes send, and stores the client's response.
+ * it to the tester-supplied client webhook using the exact shape the production
+ * webhook route for that provider sends, and stores the client's response.
  *
- * Returns null when no test run matches the callback id.
+ * `buildPayload` lets each provider produce its own envelope — Bright Data relays
+ * `{ data, extras }`, Phyllo relays the converted `{ identifier, date_scraped,
+ * posts, extras }` payload. Returns null when no test run matches the callback id.
  */
 export async function forwardScraperTestResult(
   callbackId: string,
-  { data, providerPayload, providerJobId }: {
+  { data, providerPayload, providerJobId, buildPayload }: {
     data: unknown
     providerPayload: unknown
     providerJobId?: string | null
+    buildPayload?: (extras: Record<string, unknown>) => unknown
   },
 ): Promise<ScraperTestRun | null> {
   const [run] = await db
@@ -100,7 +103,8 @@ export async function forwardScraperTestResult(
 
   if (!run) return null
 
-  const forwardedPayload = { data, extras: run.extras ?? {} }
+  const extras = (run.extras as Record<string, unknown>) ?? {}
+  const forwardedPayload = buildPayload ? buildPayload(extras) : { data, extras }
 
   let clientStatusCode: number | null = null
   let clientResponseBody: string | null = null

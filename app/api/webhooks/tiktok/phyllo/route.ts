@@ -4,7 +4,7 @@ import { tiktokPhylloScrapeJobRunItem } from "@/db/tiktok-schema"
 import { phylloScrapeRequest } from "@/db/phyllo-schema"
 import { webhookDeliveryLog } from "@/db/scraper-schema"
 import { eq } from "drizzle-orm"
-import { formatPhylloVideos } from "@/lib/tiktok-data-formatter"
+import { buildPhylloClientPayload } from "@/lib/tiktok-data-formatter"
 
 export async function POST(req: NextRequest) {
   let rawBody: unknown
@@ -14,16 +14,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: "Invalid JSON body" }, { status: 400 })
   }
 
-  const body = rawBody as { callback_id?: string; job_id?: string; data?: unknown[] }
+  const body = rawBody as {
+    callback_id?: string
+    job_id?: string
+    data?: unknown[]
+    date_scrape?: string
+  }
   const callbackId = body.callback_id ?? null
   const rawData = Array.isArray(body.data) ? body.data : []
-  // Reshaped into the Bright Data dataset type so clients get one payload shape
-  const data = formatPhylloVideos(rawData)
   const totalCount = rawData.length
 
   let clientWebhook: string | null = null
   let extras: Record<string, unknown> = {}
   let requestId: string | null = null
+  let identifier: string | null = null
 
   if (callbackId) {
     const [item] = await db
@@ -34,6 +38,7 @@ export async function POST(req: NextRequest) {
 
     if (item) {
       requestId = item.requestId
+      identifier = item.hashtag
 
       await db
         .update(tiktokPhylloScrapeJobRunItem)
@@ -55,7 +60,12 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const outgoingPayload = { data, extras }
+  const outgoingPayload = buildPhylloClientPayload({
+    identifier,
+    data: rawData,
+    extras,
+    dateScraped: body.date_scrape ?? null,
+  })
 
   let statusCode: number | null = null
   let responseBody: string | null = null
@@ -85,10 +95,10 @@ export async function POST(req: NextRequest) {
     .values({
       requestId,
       platform: "tiktok_phyllo",
-      accountName: null,
+      accountName: identifier,
       clientWebhook,
       totalCount,
-      validCount: data.length,
+      validCount: outgoingPayload.posts.length,
       statusCode,
       responseBody,
       errorMessage,
