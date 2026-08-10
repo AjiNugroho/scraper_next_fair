@@ -1,11 +1,11 @@
 import { randomUUID } from "crypto"
 import { db } from "@/db/drizzle"
 import {
-  tiktokHashtagRequest,
   tiktokHashtagVideoResult,
   tiktokPhylloScrapeJobRun,
   tiktokPhylloScrapeJobRunItem,
 } from "@/db/tiktok-schema"
+import { phylloScrapeRequest } from "@/db/phyllo-schema"
 import { and, eq, gt, lte, isNotNull, inArray, max, count } from "drizzle-orm"
 import { z } from "zod"
 import { scrapeVideoByUrl } from "@/lib/phyllo-scraper"
@@ -59,13 +59,13 @@ async function resolveWindow(filters?: PhylloScrapeJobFilters): Promise<{ from: 
 }
 
 async function resolveEligibleRequests(hashtags?: string[] | null) {
-  const conditions = [isNotNull(tiktokHashtagRequest.webhookUrl)]
+  const conditions = [isNotNull(phylloScrapeRequest.webhookUrl)]
   if (hashtags && hashtags.length > 0) {
-    conditions.push(inArray(tiktokHashtagRequest.hashtag, hashtags))
+    conditions.push(inArray(phylloScrapeRequest.hashtag, hashtags))
   }
   return db
     .select()
-    .from(tiktokHashtagRequest)
+    .from(phylloScrapeRequest)
     .where(and(...conditions))
 }
 

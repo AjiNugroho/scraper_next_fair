@@ -3,15 +3,9 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { RefreshCw } from "lucide-react"
-import {
-  useReactTable,
-  getCoreRowModel,
-  flexRender,
-  type ColumnDef,
-} from "@tanstack/react-table"
+import { useReactTable, getCoreRowModel, flexRender, type ColumnDef } from "@tanstack/react-table"
 
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   Table,
@@ -21,9 +15,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { NewScraperTestDialog } from "./NewScraperTestDialog"
-import { StatusBadge, PROVIDER_LABELS } from "@/components/scraper-test/status"
-import { useScraperTests, type ScraperTestRunSummary } from "../datahooks/useScraperTests"
+import { StatusBadge } from "@/components/scraper-test/status"
+import { NewPhylloTestDialog } from "./NewPhylloTestDialog"
+import { usePhylloTests, type ScraperTestRunSummary } from "../datahooks/usePhylloTests"
 
 const PAGE_SIZE = 20
 
@@ -32,6 +26,7 @@ function formatDate(iso: string | null) {
   return new Date(iso).toLocaleString()
 }
 
+// No provider column — this table only ever shows Phyllo runs.
 const columns: ColumnDef<ScraperTestRunSummary>[] = [
   {
     accessorKey: "createdAt",
@@ -39,11 +34,6 @@ const columns: ColumnDef<ScraperTestRunSummary>[] = [
     cell: ({ row }) => (
       <span className="text-sm whitespace-nowrap">{formatDate(row.original.createdAt)}</span>
     ),
-  },
-  {
-    accessorKey: "provider",
-    header: "Provider",
-    cell: ({ row }) => <Badge variant="outline">{PROVIDER_LABELS[row.original.provider]}</Badge>,
   },
   {
     accessorKey: "videoUrl",
@@ -89,10 +79,10 @@ const columns: ColumnDef<ScraperTestRunSummary>[] = [
   },
 ]
 
-export function ScraperTestsTable() {
+export function PhylloTestsTable() {
   const router = useRouter()
   const [page, setPage] = useState(0)
-  const { data, isLoading, refetch, isFetching } = useScraperTests(page, PAGE_SIZE)
+  const { data, isLoading, refetch, isFetching } = usePhylloTests(page, PAGE_SIZE)
 
   const table = useReactTable({
     data: data?.runs ?? [],
@@ -113,7 +103,7 @@ export function ScraperTestsTable() {
             <RefreshCw className={`h-4 w-4 mr-2 ${isFetching ? "animate-spin" : ""}`} />
             Refresh
           </Button>
-          <NewScraperTestDialog />
+          <NewPhylloTestDialog />
         </div>
       </div>
 
@@ -143,7 +133,10 @@ export function ScraperTestsTable() {
               ))
             ) : table.getRowModel().rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={columns.length} className="text-center text-muted-foreground py-8">
+                <TableCell
+                  colSpan={columns.length}
+                  className="text-center text-muted-foreground py-8"
+                >
                   No test runs yet
                 </TableCell>
               </TableRow>
@@ -152,7 +145,7 @@ export function ScraperTestsTable() {
                 <TableRow
                   key={row.id}
                   className="cursor-pointer"
-                  onClick={() => router.push(`/tiktok/scraper-tests/${row.original.id}`)}
+                  onClick={() => router.push(`/phyllo-scraper/tester/${row.original.id}`)}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
@@ -168,7 +161,12 @@ export function ScraperTestsTable() {
 
       {totalPages > 1 && (
         <div className="flex items-center justify-end gap-2">
-          <Button variant="outline" size="sm" onClick={() => setPage((p) => p - 1)} disabled={page === 0}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage((p) => p - 1)}
+            disabled={page === 0}
+          >
             Previous
           </Button>
           <span className="text-sm text-muted-foreground">

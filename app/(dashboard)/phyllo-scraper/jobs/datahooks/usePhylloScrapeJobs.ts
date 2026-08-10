@@ -33,14 +33,14 @@ type PhylloScrapeJobsResponse = {
   offset: number
 }
 
-const RUNS_KEY = ["tiktok-phyllo-scrape-jobs"] as const
+const RUNS_KEY = ["phyllo-jobs"] as const
 
 export function usePhylloScrapeJobs(page: number, pageSize = 20) {
   const offset = page * pageSize
   return useQuery<PhylloScrapeJobsResponse>({
     queryKey: [...RUNS_KEY, page],
     queryFn: async () => {
-      const res = await fetch(`/api/v1/internal/tiktok/phyllo-scrape-jobs?limit=${pageSize}&offset=${offset}`)
+      const res = await fetch(`/api/v1/internal/phyllo/jobs?limit=${pageSize}&offset=${offset}`)
       if (!res.ok) throw new Error("Failed to fetch phyllo scrape jobs")
       return res.json()
     },
@@ -63,7 +63,7 @@ export function usePhylloScrapeJobRun(
     queryFn: async () => {
       const params = new URLSearchParams({ limit: String(limit), offset: String(offset) })
       if (status) params.set("status", status)
-      const res = await fetch(`/api/v1/internal/tiktok/phyllo-scrape-jobs/${id}?${params}`)
+      const res = await fetch(`/api/v1/internal/phyllo/jobs/${id}?${params}`)
       if (!res.ok) throw new Error("Failed to fetch job run")
       return res.json() as Promise<{ run: PhylloScrapeJobRun; items: PhylloScrapeJobRunItem[]; total: number }>
     },
@@ -92,7 +92,7 @@ export function usePhylloEligibleHashtags() {
   return useQuery<{ hashtags: string[] }>({
     queryKey: [...RUNS_KEY, "hashtags"],
     queryFn: async () => {
-      const res = await fetch("/api/v1/internal/tiktok/trigger-video-scrape/hashtags")
+      const res = await fetch("/api/v1/internal/phyllo/requests/hashtags")
       if (!res.ok) throw new Error("Failed to fetch hashtags")
       return res.json()
     },
@@ -102,7 +102,7 @@ export function usePhylloEligibleHashtags() {
 export function usePreviewPhylloScrapeJob() {
   return useMutation({
     mutationFn: async (filters: PhylloScrapeJobTriggerFilters) => {
-      const res = await fetch("/api/v1/internal/tiktok/trigger-phyllo-scrape/preview", {
+      const res = await fetch("/api/v1/internal/phyllo/trigger/preview", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(filters),
@@ -123,7 +123,7 @@ export function useTriggerPhylloScrapeJob() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (filters: PhylloScrapeJobTriggerFilters) => {
-      const res = await fetch("/api/v1/internal/tiktok/trigger-phyllo-scrape", {
+      const res = await fetch("/api/v1/internal/phyllo/trigger", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(filters),
@@ -148,7 +148,7 @@ export function useRetryPhylloScrapeJobRun() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`/api/v1/internal/tiktok/phyllo-scrape-jobs/${id}/retry`, { method: "POST" })
+      const res = await fetch(`/api/v1/internal/phyllo/jobs/${id}/retry`, { method: "POST" })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
         throw new Error(body.error ?? "Retry failed")

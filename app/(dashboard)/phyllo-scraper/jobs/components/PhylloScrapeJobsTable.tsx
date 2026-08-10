@@ -201,7 +201,7 @@ export function PhylloScrapeJobsTable() {
                 <TableRow
                   key={row.id}
                   className="cursor-pointer"
-                  onClick={() => router.push(`/tiktok/phyllo-scrape-jobs/${row.original.id}`)}
+                  onClick={() => router.push(`/phyllo-scraper/jobs/${row.original.id}`)}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>

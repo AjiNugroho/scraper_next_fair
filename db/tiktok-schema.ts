@@ -1,4 +1,5 @@
 import { pgTable, text, timestamp, uuid, integer, jsonb, index, boolean } from "drizzle-orm/pg-core"
+import { phylloScrapeRequest } from "./phyllo-schema"
 
 export const tiktokWorker = pgTable("tiktok_worker", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -111,7 +112,7 @@ export const tiktokPhylloScrapeJobRunItem = pgTable(
       .references(() => tiktokPhylloScrapeJobRun.id, { onDelete: "cascade" }),
     requestId: uuid("request_id")
       .notNull()
-      .references(() => tiktokHashtagRequest.id, { onDelete: "cascade" }),
+      .references(() => phylloScrapeRequest.id, { onDelete: "cascade" }),
     hashtag: text("hashtag").notNull(),
     webhookUrl: text("webhook_url").notNull(),
     url: text("url").notNull(),

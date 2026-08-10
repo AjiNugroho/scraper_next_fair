@@ -5,75 +5,65 @@ import { toast } from "sonner"
 
 import {
   IN_FLIGHT_STATUSES,
-  type ScraperTestProvider,
   type ScraperTestRun,
   type ScraperTestRunSummary,
-  type ScraperTestStatus,
 } from "@/components/scraper-test/types"
 
-export type {
-  ScraperTestProvider,
-  ScraperTestRun,
-  ScraperTestRunSummary,
-  ScraperTestStatus,
-}
+export type { ScraperTestRun, ScraperTestRunSummary }
 
-type ScraperTestsResponse = {
+type PhylloTestsResponse = {
   runs: ScraperTestRunSummary[]
   total: number
   limit: number
   offset: number
 }
 
-export type CreateScraperTestInput = {
-  provider: ScraperTestProvider
+export type CreatePhylloTestInput = {
   videoUrl: string
   clientWebhookUrl: string
   extras?: Record<string, unknown> | null
 }
 
-const TESTS_KEY = ["tiktok-scraper-tests"] as const
+const TESTS_KEY = ["phyllo-tests"] as const
 
-const IN_FLIGHT = IN_FLIGHT_STATUSES
-
-export function useScraperTests(page: number, pageSize = 20) {
+export function usePhylloTests(page: number, pageSize = 20) {
   const offset = page * pageSize
-  return useQuery<ScraperTestsResponse>({
+  return useQuery<PhylloTestsResponse>({
     queryKey: [...TESTS_KEY, page],
     queryFn: async () => {
-      const res = await fetch(`/api/v1/internal/tiktok/scraper-tests?limit=${pageSize}&offset=${offset}`)
-      if (!res.ok) throw new Error("Failed to fetch scraper tests")
+      const res = await fetch(`/api/v1/internal/phyllo/tests?limit=${pageSize}&offset=${offset}`)
+      if (!res.ok) throw new Error("Failed to fetch Phyllo tests")
       return res.json()
     },
     refetchInterval: (query) => {
       const runs = query.state.data?.runs ?? []
-      return runs.some((r) => IN_FLIGHT.includes(r.status)) ? 4_000 : false
+      return runs.some((r) => IN_FLIGHT_STATUSES.includes(r.status)) ? 4_000 : false
     },
   })
 }
 
-export function useScraperTest(id: string | null) {
+export function usePhylloTest(id: string | null) {
   return useQuery({
     queryKey: [...TESTS_KEY, id],
     enabled: !!id,
     queryFn: async () => {
-      const res = await fetch(`/api/v1/internal/tiktok/scraper-tests/${id}`)
-      if (!res.ok) throw new Error("Failed to fetch scraper test")
+      const res = await fetch(`/api/v1/internal/phyllo/tests/${id}`)
+      if (!res.ok) throw new Error("Failed to fetch Phyllo test")
       return res.json() as Promise<{ run: ScraperTestRun }>
     },
     refetchInterval: (query) => {
       const run = query.state.data?.run
       if (!run) return false
-      return IN_FLIGHT.includes(run.status) ? 4_000 : false
+      return IN_FLIGHT_STATUSES.includes(run.status) ? 4_000 : false
     },
   })
 }
 
-export function useCreateScraperTest() {
+export function useCreatePhylloTest() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (input: CreateScraperTestInput) => {
-      const res = await fetch("/api/v1/internal/tiktok/scraper-tests", {
+    mutationFn: async (input: CreatePhylloTestInput) => {
+      const res = await fetch("/api/v1/internal/phyllo/tests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input),
@@ -86,9 +76,9 @@ export function useCreateScraperTest() {
     },
     onSuccess: ({ run }) => {
       if (run.status === "dispatch_failed") {
-        toast.error(run.dispatchError ?? "Provider rejected the request")
+        toast.error(run.dispatchError ?? "Phyllo rejected the request")
       } else {
-        toast.success("Test sent — waiting for the provider to call back")
+        toast.success("Test sent — waiting for Phyllo to call back")
       }
       queryClient.invalidateQueries({ queryKey: TESTS_KEY })
     },

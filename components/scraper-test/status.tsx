@@ -1,6 +1,6 @@
 "use client"
 
-import type { ScraperTestProvider, ScraperTestStatus } from "../datahooks/useScraperTests"
+import type { ScraperTestProvider, ScraperTestStatus } from "./types"
 
 export const PROVIDER_LABELS: Record<ScraperTestProvider, string> = {
   phyllo: "Phyllo",

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/db/drizzle"
-import { tiktokHashtagRequest, tiktokPhylloScrapeJobRunItem } from "@/db/tiktok-schema"
+import { tiktokPhylloScrapeJobRunItem } from "@/db/tiktok-schema"
+import { phylloScrapeRequest } from "@/db/phyllo-schema"
 import { webhookDeliveryLog } from "@/db/scraper-schema"
 import { eq } from "drizzle-orm"
 import { formatPhylloVideos } from "@/lib/tiktok-data-formatter"
@@ -41,8 +42,8 @@ export async function POST(req: NextRequest) {
 
       const [request] = await db
         .select()
-        .from(tiktokHashtagRequest)
-        .where(eq(tiktokHashtagRequest.id, item.requestId))
+        .from(phylloScrapeRequest)
+        .where(eq(phylloScrapeRequest.id, item.requestId))
         .limit(1)
 
       if (request) {

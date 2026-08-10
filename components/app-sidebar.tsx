@@ -43,9 +43,16 @@ const NAV_GROUPS = [
       { title: "Hashtags", url: "/tiktok/hashtags", icon: FaHashtag },
       { title: "Scraped Results", url: "/tiktok/results", icon: BiSolidVideos },
       { title: "BrightData Jobs", url: "/tiktok/scrape-jobs", icon: FaSpider },
-      { title: "Phyllo Jobs", url: "/tiktok/phyllo-scrape-jobs", icon: Waypoints },
       { title: "Bulk Video Scrape", url: "/tiktok/bulk-scrape", icon: FileUp },
       { title: "Scraper Tester", url: "/tiktok/scraper-tests", icon: FlaskConical },
+    ],
+  },
+  {
+    label: "Phyllo",
+    items: [
+      { title: "Scrape Requests", url: "/phyllo-scraper/requests", icon: Waypoints },
+      { title: "Phyllo Jobs", url: "/phyllo-scraper/jobs", icon: FaSpider },
+      { title: "Phyllo Tester", url: "/phyllo-scraper/tester", icon: FlaskConical },
     ],
   },
   {
