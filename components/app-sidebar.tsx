@@ -52,6 +52,7 @@ const NAV_GROUPS = [
     items: [
       { title: "Scrape Requests", url: "/tokopedia-project/requests", icon: ShoppingBag },
       { title: "Workers", url: "/tokopedia-project", icon: Smartphone },
+      { title: "Hashtags", url: "/tokopedia-project/hashtags", icon: FaHashtag },
       { title: "Scraped Results", url: "/tokopedia-project/results", icon: BiSolidVideos },
       { title: "Phyllo Batches", url: "/tokopedia-project/phyllo-batches", icon: Waypoints },
     ],
