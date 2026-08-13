@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/db/drizzle"
-import { tokopediaHashtagRequest } from "@/db/tokopedia-schema"
+import { tokopediaHashtagRequest, tokopediaJobHashtag } from "@/db/tokopedia-schema"
 import { eq } from "drizzle-orm"
 import { auth } from "@/lib/auth"
 import { z } from "zod"
@@ -39,15 +39,48 @@ export async function PATCH(
   if (hashtag !== undefined) updates.hashtag = hashtag
   if (extras !== undefined) updates.extras = extras ?? null
 
-  const rows = await db
-    .update(tokopediaHashtagRequest)
-    .set(updates)
-    .where(eq(tokopediaHashtagRequest.id, id))
-    .returning()
+  try {
+    const result = await db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select({ hashtag: tokopediaHashtagRequest.hashtag })
+        .from(tokopediaHashtagRequest)
+        .where(eq(tokopediaHashtagRequest.id, id))
+        .limit(1)
 
-  if (rows.length === 0) return NextResponse.json({ error: "Not found" }, { status: 404 })
+      if (!existing) return null
 
-  return NextResponse.json(rows[0])
+      const [updated] = await tx
+        .update(tokopediaHashtagRequest)
+        .set(updates)
+        .where(eq(tokopediaHashtagRequest.id, id))
+        .returning()
+
+      // The request row is just a submission log — the hashtag actually queued
+      // for scraping (and assigned to a worker) lives in tokopediaJobHashtag,
+      // linked only by matching text. Rename it too, or the worker keeps
+      // scraping the old hashtag forever.
+      if (hashtag !== undefined && hashtag !== existing.hashtag) {
+        await tx
+          .update(tokopediaJobHashtag)
+          .set({ hashtag })
+          .where(eq(tokopediaJobHashtag.hashtag, existing.hashtag))
+      }
+
+      return updated
+    })
+
+    if (!result) return NextResponse.json({ error: "Not found" }, { status: 404 })
+
+    return NextResponse.json(result)
+  } catch (err) {
+    if (err instanceof Error && "code" in err && (err as { code?: string }).code === "23505") {
+      return NextResponse.json(
+        { error: `"${hashtag}" is already queued under a different request` },
+        { status: 409 },
+      )
+    }
+    throw err
+  }
 }
 
 export async function DELETE(
