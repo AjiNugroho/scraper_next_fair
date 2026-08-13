@@ -43,6 +43,11 @@ const spec = {
     { name: "Instagram", description: instagramDoc },
     { name: "TikTok Jobs", description: tiktokDoc },
     { name: "TikTok Video Scraper" },
+    {
+      name: "Tokopedia",
+      description:
+        "Mobile workers poll `GET /tokopedia-jobs/{workerName}` for their assigned hashtags, then POST scraped video URLs to `/tokopedia-results`.",
+    },
     { name: "Webhooks" },
     { name: "Helpers" },
   ],
@@ -580,6 +585,101 @@ const spec = {
           },
           "401": { description: "Missing or invalid API key.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
           "404": { description: "Job not found.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
+    "/tokopedia-jobs/{workerName}": {
+      parameters: [
+        {
+          name: "workerName",
+          in: "path",
+          required: true,
+          schema: { type: "string" },
+          description: "Name of the registered Tokopedia mobile worker (e.g. `worker-01`).",
+        },
+      ],
+      get: {
+        summary: "Get hashtags assigned to a Tokopedia worker",
+        operationId: "tokopediaJobsGetWorkerHashtags",
+        tags: ["Tokopedia"],
+        description:
+          "Polled by a mobile worker to find out what it's currently assigned to scrape. Returns the list of hashtags currently assigned to the given worker. Returns 404 if the worker name is not registered.",
+        responses: {
+          "200": {
+            description: "Assigned hashtags.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    hashtags: {
+                      type: "array",
+                      items: { type: "string" },
+                      description: "Hashtags assigned to this worker (no # prefix).",
+                    },
+                  },
+                },
+                example: { hashtags: ["sepatulari", "tasransel", "jamtangan"] },
+              },
+            },
+          },
+          "401": { description: "Missing or invalid API key.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "404": { description: "Worker not registered.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
+    "/tokopedia-results": {
+      post: {
+        summary: "Submit Tokopedia scrape results",
+        operationId: "tokopediaResultsCreate",
+        tags: ["Tokopedia"],
+        description:
+          "Called by a mobile worker to hand back the video URLs it collected while scraping one of its assigned hashtags.",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["worker_name", "hashtag", "video_urls"],
+                properties: {
+                  worker_name: { type: "string", minLength: 1, description: "Name of the mobile worker submitting results." },
+                  hashtag: { type: "string", minLength: 1, description: "Hashtag that was scraped (no # prefix)." },
+                  video_urls: {
+                    type: "array",
+                    items: { type: "string", format: "uri" },
+                    description: "List of collected video URLs. Can be empty if the page yielded no results.",
+                  },
+                },
+              },
+              example: {
+                worker_name: "worker-01",
+                hashtag: "sepatulari",
+                video_urls: [
+                  "https://www.tiktok.com/@someuser/video/7650168556616895765",
+                  "https://www.tiktok.com/@anotheruser/video/7650168556616895766",
+                ],
+              },
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Results saved.",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean" },
+                    saved: { type: "integer", description: "Number of video URLs inserted." },
+                  },
+                },
+              },
+            },
+          },
+          "400": { description: "Validation error.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "401": { description: "Missing or invalid API key.", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
         },
       },
     },

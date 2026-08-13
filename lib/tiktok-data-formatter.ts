@@ -225,7 +225,7 @@ export function formatPhylloPost(input: unknown, scrapedAt: string): ConvertedPo
     profile_image_link: null,
     is_verified: null,
     is_paid_partnership: null,
-    partnership_details: { profile_id: null, username: null, profile_url: null },
+    partnership_details: null,
     user_posted_id: null,
     post_content: null,
     images: null,

@@ -3,7 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Globe2, LayoutDashboard, Users, KeyRound, ScrollText, Webhook, Smartphone, FileUp, Waypoints, FlaskConical } from "lucide-react"
+import { Globe2, LayoutDashboard, Users, KeyRound, ScrollText, Webhook, Smartphone, FileUp, Waypoints, FlaskConical, ShoppingBag } from "lucide-react"
 import { FaHashtag, FaInstagram, FaSpider } from "react-icons/fa"
 import { FaTiktok } from "react-icons/fa6"
 import { authClient } from "@/lib/auth-client"
@@ -45,6 +45,15 @@ const NAV_GROUPS = [
       { title: "BrightData Jobs", url: "/tiktok/scrape-jobs", icon: FaSpider },
       { title: "Bulk Video Scrape", url: "/tiktok/bulk-scrape", icon: FileUp },
       { title: "Scraper Tester", url: "/tiktok/scraper-tests", icon: FlaskConical },
+    ],
+  },
+  {
+    label: "Tokopedia",
+    items: [
+      { title: "Scrape Requests", url: "/tokopedia-project/requests", icon: ShoppingBag },
+      { title: "Workers", url: "/tokopedia-project", icon: Smartphone },
+      { title: "Scraped Results", url: "/tokopedia-project/results", icon: BiSolidVideos },
+      { title: "Phyllo Batches", url: "/tokopedia-project/phyllo-batches", icon: Waypoints },
     ],
   },
   {
