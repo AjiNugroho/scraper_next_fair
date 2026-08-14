@@ -122,7 +122,10 @@ export async function dispatchVideoUrlsToPhyllo(input: {
   await recomputeBatchStatus(batch.id)
 }
 
-export async function retryFailedPhylloBatchItems(batchId: string): Promise<void> {
+async function retryPhylloBatchItems(
+  batchId: string,
+  statuses?: (typeof tokopediaPhylloBatchItem.$inferSelect)["status"][],
+): Promise<void> {
   const [batch] = await db
     .select()
     .from(tokopediaPhylloBatch)
@@ -137,17 +140,30 @@ export async function retryFailedPhylloBatchItems(batchId: string): Promise<void
     .set({ status: "running" })
     .where(eq(tokopediaPhylloBatch.id, batchId))
 
-  const pendingItems = await db
+  const items = await db
     .select()
     .from(tokopediaPhylloBatchItem)
     .where(
-      and(
-        eq(tokopediaPhylloBatchItem.batchId, batchId),
-        inArray(tokopediaPhylloBatchItem.status, ["pending", "failed"]),
-      ),
+      statuses
+        ? and(
+            eq(tokopediaPhylloBatchItem.batchId, batchId),
+            inArray(tokopediaPhylloBatchItem.status, statuses),
+          )
+        : eq(tokopediaPhylloBatchItem.batchId, batchId),
     )
 
-  await mapWithConcurrency(pendingItems, CONCURRENCY, dispatchItemRow)
+  await mapWithConcurrency(items, CONCURRENCY, dispatchItemRow)
 
   await recomputeBatchStatus(batchId)
+}
+
+// Resubmits only items that haven't been successfully sent yet.
+export async function retryFailedPhylloBatchItems(batchId: string): Promise<void> {
+  return retryPhylloBatchItems(batchId, ["pending", "failed"])
+}
+
+// Resubmits every item in the batch regardless of status — including ones
+// already marked "sent". Used to force a full re-dispatch to Phyllo.
+export async function retryAllPhylloBatchItems(batchId: string): Promise<void> {
+  return retryPhylloBatchItems(batchId)
 }

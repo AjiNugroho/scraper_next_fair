@@ -7,7 +7,7 @@ import {
   flexRender,
   type ColumnDef,
 } from "@tanstack/react-table"
-import { Loader2, ChevronLeft, ChevronRight, ArrowLeft, RotateCcw } from "lucide-react"
+import { Loader2, ChevronLeft, ChevronRight, ArrowLeft, RotateCcw, RefreshCw } from "lucide-react"
 import Link from "next/link"
 
 import { Button } from "@/components/ui/button"
@@ -33,6 +33,7 @@ import {
   type TokopediaPhylloBatch,
   type TokopediaPhylloBatchItem,
 } from "../../datahooks/useTokopediaPhylloBatches"
+import { RetryAllDialog } from "./RetryAllDialog"
 
 const PAGE_SIZE = 50
 
@@ -67,6 +68,7 @@ function formatDate(iso: string | null) {
 export function PhylloBatchDetail({ id }: { id: string }) {
   const [page, setPage] = useState(0)
   const [statusFilter, setStatusFilter] = useState("all")
+  const [retryAllOpen, setRetryAllOpen] = useState(false)
 
   const { data, isLoading, isError } = useTokopediaPhylloBatch(id, {
     status: statusFilter === "all" ? undefined : statusFilter,
@@ -205,21 +207,36 @@ export function PhylloBatchDetail({ id }: { id: string }) {
             )}
           </div>
 
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => retry.mutate(id)}
-            disabled={!canRetry || retry.isPending}
-          >
-            {retry.isPending ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <RotateCcw className="h-3.5 w-3.5" />
-            )}
-            Retry Failed
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => retry.mutate(id)}
+              disabled={!canRetry || retry.isPending}
+            >
+              {retry.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <RotateCcw className="h-3.5 w-3.5" />
+              )}
+              Retry Failed
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setRetryAllOpen(true)}
+              disabled={!canRetry}
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Retry All
+            </Button>
+          </div>
         </div>
       </div>
+
+      {batch && (
+        <RetryAllDialog batchId={batch.id} open={retryAllOpen} onOpenChange={setRetryAllOpen} />
+      )}
 
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-3 flex-wrap">

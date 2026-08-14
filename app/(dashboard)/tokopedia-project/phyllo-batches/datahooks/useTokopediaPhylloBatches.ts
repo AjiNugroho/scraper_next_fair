@@ -98,3 +98,26 @@ export function useRetryTokopediaPhylloBatch() {
     },
   })
 }
+
+export function useRetryAllTokopediaPhylloBatch() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/v1/internal/tokopedia/phyllo-batches/${id}/retry-all`, {
+        method: "POST",
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error ?? "Retry all failed")
+      }
+      return res.json() as Promise<{ success: boolean }>
+    },
+    onSuccess: () => {
+      toast.success("Resubmitting all items — this page will update as they complete")
+      queryClient.invalidateQueries({ queryKey: BATCHES_KEY })
+    },
+    onError: (err: Error) => {
+      toast.error(err.message)
+    },
+  })
+}
