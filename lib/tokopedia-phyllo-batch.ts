@@ -5,6 +5,10 @@ import { and, eq, inArray } from "drizzle-orm"
 import { scrapeVideoByUrl } from "@/lib/phyllo-scraper"
 
 const CONCURRENCY = 5
+const WEBHOOK_BASE = process.env.BETTER_AUTH_URL ?? ""
+// Ours, not the client's — Phyllo calls us back here so we can format the raw
+// result before relaying it to the client. See app/api/webhooks/tokopedia/phyllo.
+const INBOUND_WEBHOOK_URL = `${WEBHOOK_BASE}/api/webhooks/tokopedia/phyllo`
 
 type BatchItemRow = typeof tokopediaPhylloBatchItem.$inferSelect
 
@@ -49,7 +53,10 @@ async function getOrCreateTodayBatch(): Promise<typeof tokopediaPhylloBatch.$inf
 
 async function dispatchItemRow(row: BatchItemRow): Promise<void> {
   try {
-    await scrapeVideoByUrl(row.videoUrl, row.callbackId, row.webhookUrl)
+    // row.webhookUrl is the client's TOKOPEDIA_WEBHOOK_URL snapshot — that's where
+    // we relay the *formatted* result once it comes back, not where Phyllo sends
+    // the raw one. Phyllo gets pointed at our own inbound webhook instead.
+    await scrapeVideoByUrl(row.videoUrl, row.callbackId, INBOUND_WEBHOOK_URL)
     await db
       .update(tokopediaPhylloBatchItem)
       .set({ status: "sent", sentAt: new Date(), error: null, attempts: row.attempts + 1 })
@@ -81,8 +88,10 @@ async function recomputeBatchStatus(batchId: string): Promise<void> {
 }
 
 // Called right after a worker's video URLs are stored. Appends them to today's
-// batch and dispatches each one to Phyllo, with the client's static webhook URL
-// so Phyllo delivers the scrape result straight to the client — we don't see it.
+// batch and dispatches each one to Phyllo, pointed at our own inbound webhook.
+// The client's static webhook URL is only snapshotted onto the item — the
+// inbound webhook route uses it to relay the formatted result once Phyllo calls
+// back with the raw one.
 export async function dispatchVideoUrlsToPhyllo(input: {
   workerName: string
   hashtag: string

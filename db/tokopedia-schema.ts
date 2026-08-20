@@ -66,8 +66,11 @@ export const tokopediaPhylloBatch = pgTable("tokopedia_phyllo_batch", {
 })
 
 // Individual video URL dispatched (or pending dispatch) to Phyllo as part of a
-// batch. webhookUrl is a snapshot of TOKOPEDIA_WEBHOOK_URL at dispatch time —
-// Phyllo calls it directly with the scrape result, we never see it again.
+// batch. Phyllo is told to call back our own inbound webhook (see
+// app/api/webhooks/tokopedia/phyllo), not the client's. webhookUrl here is a
+// snapshot of TOKOPEDIA_WEBHOOK_URL at dispatch time — once the inbound webhook
+// receives and formats the raw result (matched back to this row by callbackId),
+// it relays the formatted payload to this URL.
 export const tokopediaPhylloBatchItem = pgTable(
   "tokopedia_phyllo_batch_item",
   {
