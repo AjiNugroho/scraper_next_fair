@@ -48,3 +48,22 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   return NextResponse.json({ batch, items, total, limit, offset })
 }
+
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const session = await auth.api.getSession({ headers: req.headers })
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const { id } = await params
+
+  // Cascades to tokopedia_phyllo_batch_item via its batchId FK (onDelete: "cascade").
+  const deleted = await db
+    .delete(tokopediaPhylloBatch)
+    .where(eq(tokopediaPhylloBatch.id, id))
+    .returning()
+
+  if (deleted.length === 0) {
+    return NextResponse.json({ error: "Batch not found" }, { status: 404 })
+  }
+
+  return NextResponse.json({ success: true })
+}

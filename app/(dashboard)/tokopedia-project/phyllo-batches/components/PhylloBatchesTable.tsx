@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
   useTokopediaPhylloBatches,
@@ -17,13 +17,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { RefreshCw } from "lucide-react"
+import { RefreshCw, Trash2 } from "lucide-react"
 import {
   useReactTable,
   getCoreRowModel,
   type ColumnDef,
   flexRender,
 } from "@tanstack/react-table"
+import { DeleteBatchDialog } from "./DeleteBatchDialog"
 
 const PAGE_SIZE = 20
 
@@ -39,36 +40,57 @@ function formatDate(iso: string | null) {
   return new Date(iso).toLocaleString()
 }
 
-const columns: ColumnDef<TokopediaPhylloBatch>[] = [
-  {
-    accessorKey: "batchDate",
-    header: "Batch Date",
-    cell: ({ row }) => <span className="font-medium">{row.original.batchDate}</span>,
-  },
-  {
-    accessorKey: "videoUrlsCount",
-    header: "URLs",
-  },
-  {
-    accessorKey: "itemsSent",
-    header: "Sent",
-  },
-  {
-    accessorKey: "updatedAt",
-    header: "Last Updated",
-    cell: ({ row }) => formatDate(row.original.updatedAt),
-  },
-  {
-    accessorKey: "status",
-    header: "Status",
-    cell: ({ row }) => <StatusBadge status={row.original.status} />,
-  },
-]
-
 export function PhylloBatchesTable() {
   const router = useRouter()
   const [page, setPage] = useState(0)
+  const [deleteTarget, setDeleteTarget] = useState<TokopediaPhylloBatch | null>(null)
   const { data, isLoading, refetch, isFetching } = useTokopediaPhylloBatches(page, PAGE_SIZE)
+
+  const columns = useMemo<ColumnDef<TokopediaPhylloBatch>[]>(
+    () => [
+      {
+        accessorKey: "batchDate",
+        header: "Batch Date",
+        cell: ({ row }) => <span className="font-medium">{row.original.batchDate}</span>,
+      },
+      {
+        accessorKey: "videoUrlsCount",
+        header: "URLs",
+      },
+      {
+        accessorKey: "itemsSent",
+        header: "Sent",
+      },
+      {
+        accessorKey: "updatedAt",
+        header: "Last Updated",
+        cell: ({ row }) => formatDate(row.original.updatedAt),
+      },
+      {
+        accessorKey: "status",
+        header: "Status",
+        cell: ({ row }) => <StatusBadge status={row.original.status} />,
+      },
+      {
+        id: "actions",
+        header: "",
+        cell: ({ row }) => (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-destructive hover:text-destructive"
+            onClick={(e) => {
+              e.stopPropagation()
+              setDeleteTarget(row.original)
+            }}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        ),
+      },
+    ],
+    [],
+  )
 
   const table = useReactTable({
     data: data?.batches ?? [],
@@ -151,6 +173,14 @@ export function PhylloBatchesTable() {
             Next
           </Button>
         </div>
+      )}
+
+      {deleteTarget && (
+        <DeleteBatchDialog
+          batch={deleteTarget}
+          open={!!deleteTarget}
+          onOpenChange={(open) => !open && setDeleteTarget(null)}
+        />
       )}
     </div>
   )

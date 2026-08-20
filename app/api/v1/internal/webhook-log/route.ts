@@ -34,6 +34,7 @@ export async function GET(req: NextRequest) {
         errorMessage: webhookDeliveryLog.errorMessage,
         retryCount: webhookDeliveryLog.retryCount,
         retryable: isNotNull(webhookDeliveryLog.payload),
+        payload: webhookDeliveryLog.payload,
         createdAt: webhookDeliveryLog.createdAt,
         updatedAt: webhookDeliveryLog.updatedAt,
       })

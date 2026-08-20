@@ -8,7 +8,7 @@ import {
   flexRender,
   type ColumnDef,
 } from "@tanstack/react-table"
-import { ChevronLeft, ChevronRight, Loader2, RotateCcw } from "lucide-react"
+import { Braces, Check, ChevronLeft, ChevronRight, Copy, Loader2, RotateCcw } from "lucide-react"
 import type { DateRange } from "react-day-picker"
 
 import { Button } from "@/components/ui/button"
@@ -54,6 +54,10 @@ export function WebhookLogTable() {
   const [responseDialog, setResponseDialog] = useState<{ open: boolean; body: string | null; error: string | null }>({
     open: false, body: null, error: null,
   })
+  const [payloadDialog, setPayloadDialog] = useState<{ open: boolean; payload: unknown }>({
+    open: false, payload: null,
+  })
+  const [payloadCopied, setPayloadCopied] = useState(false)
 
   const dateFrom = dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : undefined
   const dateTo = dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : undefined
@@ -74,6 +78,13 @@ export function WebhookLogTable() {
   function handleDateChange(range: DateRange | undefined) {
     setDateRange(range)
     setPage(0)
+  }
+
+  function handleCopyPayload() {
+    if (payloadDialog.payload === null) return
+    navigator.clipboard.writeText(JSON.stringify(payloadDialog.payload, null, 2))
+    setPayloadCopied(true)
+    setTimeout(() => setPayloadCopied(false), 2000)
   }
 
   const columns = useMemo<ColumnDef<WebhookLogItem>[]>(
@@ -157,6 +168,24 @@ export function WebhookLogTable() {
             </Button>
           ) : (
             <span className="text-muted-foreground">—</span>
+          )
+        },
+      },
+      {
+        id: "payload",
+        header: "",
+        cell: ({ row }) => {
+          if (row.original.payload === null || row.original.payload === undefined) return null
+          return (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => setPayloadDialog({ open: true, payload: row.original.payload })}
+            >
+              <Braces className="h-3.5 w-3.5" />
+              View Payload
+            </Button>
           )
         },
       },
@@ -293,6 +322,40 @@ export function WebhookLogTable() {
                 </pre>
               </div>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={payloadDialog.open}
+        onOpenChange={(open) => {
+          setPayloadDialog((p) => ({ ...p, open }))
+          if (!open) setPayloadCopied(false)
+        }}
+      >
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Failed Payload</DialogTitle>
+            <DialogDescription>
+              The JSON body that failed to reach the client webhook.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="relative rounded-md border bg-muted/50">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute right-2 top-2 h-7 w-7"
+              onClick={handleCopyPayload}
+            >
+              {payloadCopied ? (
+                <Check className="h-3.5 w-3.5 text-primary" />
+              ) : (
+                <Copy className="h-3.5 w-3.5" />
+              )}
+            </Button>
+            <pre className="text-xs p-3 pr-10 overflow-auto max-h-96 whitespace-pre">
+              {payloadDialog.payload !== null ? JSON.stringify(payloadDialog.payload, null, 2) : ""}
+            </pre>
           </div>
         </DialogContent>
       </Dialog>

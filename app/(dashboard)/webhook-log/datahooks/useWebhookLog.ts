@@ -14,6 +14,7 @@ export type WebhookLogItem = {
   errorMessage: string | null
   retryCount: number
   retryable: boolean
+  payload: unknown
   createdAt: string
   updatedAt: string
 }

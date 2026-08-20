@@ -99,6 +99,29 @@ export function useRetryTokopediaPhylloBatch() {
   })
 }
 
+export function useDeleteTokopediaPhylloBatch() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/v1/internal/tokopedia/phyllo-batches/${id}`, {
+        method: "DELETE",
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error ?? "Failed to delete batch")
+      }
+      return res.json() as Promise<{ success: boolean }>
+    },
+    onSuccess: () => {
+      toast.success("Batch deleted")
+      queryClient.invalidateQueries({ queryKey: BATCHES_KEY })
+    },
+    onError: (err: Error) => {
+      toast.error(err.message)
+    },
+  })
+}
+
 export function useRetryAllTokopediaPhylloBatch() {
   const queryClient = useQueryClient()
   return useMutation({
