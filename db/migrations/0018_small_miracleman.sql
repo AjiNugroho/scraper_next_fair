@@ -1,0 +1,1 @@
+ALTER TABLE "tokopedia_phyllo_batch_item" ADD COLUMN "extras" jsonb;

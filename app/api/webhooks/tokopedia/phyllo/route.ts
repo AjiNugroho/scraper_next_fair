@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
   const outgoingPayload = buildPhylloClientPayload({
     identifier: item?.hashtag ?? null,
     data: rawData,
-    extras: {},
+    extras: item?.extras ?? {},
     dateScraped: body.date_scrape ?? null,
   })
 

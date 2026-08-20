@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto"
 import { db } from "@/db/drizzle"
-import { tokopediaPhylloBatch, tokopediaPhylloBatchItem } from "@/db/tokopedia-schema"
-import { and, eq, inArray } from "drizzle-orm"
+import { tokopediaHashtagRequest, tokopediaPhylloBatch, tokopediaPhylloBatchItem } from "@/db/tokopedia-schema"
+import { and, desc, eq, inArray } from "drizzle-orm"
 import { scrapeVideoByUrl } from "@/lib/phyllo-scraper"
 
 const CONCURRENCY = 5
@@ -87,6 +87,22 @@ async function recomputeBatchStatus(batchId: string): Promise<void> {
     .where(eq(tokopediaPhylloBatch.id, batchId))
 }
 
+// tokopedia_hashtag_request.hashtag has no unique constraint — a hashtag can
+// have been submitted more than once (e.g. resubmitted with different extras).
+// The most recently created row is treated as the current one. Returns null if
+// the hashtag was never submitted through a request (e.g. queued some other
+// way), in which case the batch item just carries no extras.
+async function resolveExtrasForHashtag(hashtag: string): Promise<Record<string, unknown> | null> {
+  const [latest] = await db
+    .select({ extras: tokopediaHashtagRequest.extras })
+    .from(tokopediaHashtagRequest)
+    .where(eq(tokopediaHashtagRequest.hashtag, hashtag))
+    .orderBy(desc(tokopediaHashtagRequest.createdAt))
+    .limit(1)
+
+  return latest?.extras ?? null
+}
+
 // Called right after a worker's video URLs are stored. Appends them to today's
 // batch and dispatches each one to Phyllo, pointed at our own inbound webhook.
 // The client's static webhook URL is only snapshotted onto the item — the
@@ -112,6 +128,9 @@ export async function dispatchVideoUrlsToPhyllo(input: {
     .set({ status: "running" })
     .where(eq(tokopediaPhylloBatch.id, batch.id))
 
+  // One lookup for the whole call — every item created here shares input.hashtag.
+  const extras = await resolveExtrasForHashtag(input.hashtag)
+
   const inserted = await db
     .insert(tokopediaPhylloBatchItem)
     .values(
@@ -121,6 +140,7 @@ export async function dispatchVideoUrlsToPhyllo(input: {
         hashtag: input.hashtag,
         videoUrl: url,
         webhookUrl,
+        extras,
         callbackId: randomUUID(),
       })),
     )

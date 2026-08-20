@@ -82,6 +82,11 @@ export const tokopediaPhylloBatchItem = pgTable(
     hashtag: text("hashtag").notNull(),
     videoUrl: text("video_url").notNull(),
     webhookUrl: text("webhook_url").notNull(),
+    // Snapshot of the matching tokopedia_hashtag_request's extras at dispatch
+    // time (looked up by hashtag — one lookup per worker submission, since every
+    // item created from the same submission shares one hashtag). Read back by
+    // the inbound webhook route when it builds the formatted client payload.
+    extras: jsonb("extras").$type<Record<string, unknown>>(),
     callbackId: text("callback_id").notNull().unique(),
     providerJobId: text("provider_job_id"),
     status: text("status").notNull().default("pending"), // pending | sent | failed
