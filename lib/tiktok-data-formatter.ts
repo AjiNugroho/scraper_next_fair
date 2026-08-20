@@ -240,6 +240,24 @@ export function formatPhylloPosts(input: unknown[], scrapedAt: string): Converte
     .filter((post): post is ConvertedPost => post !== null)
 }
 
+// Some intake forms (namely Tokopedia's) collect extras as a freeform
+// key/value list where every value is a string, so listen_group_id /
+// request_data_id can end up stored as "123" instead of 123. Their names are
+// fixed by the client contract, so coerce them here rather than at every
+// place extras gets written.
+const NUMERIC_EXTRA_KEYS = ["listen_group_id", "request_data_id"] as const
+
+function coerceNumericExtras(extras: Record<string, unknown>): Record<string, unknown> {
+  const result = { ...extras }
+  for (const key of NUMERIC_EXTRA_KEYS) {
+    const value = result[key]
+    if (typeof value === "string" && value.trim() !== "" && !Number.isNaN(Number(value))) {
+      result[key] = Number(value)
+    }
+  }
+  return result
+}
+
 /**
  * Builds the full body POSTed to a client webhook for a Phyllo result.
  * `identifier` is the hashtag the scrape request was made for.
@@ -260,6 +278,6 @@ export function buildPhylloClientPayload({
     identifier,
     date_scraped: scrapedAt,
     posts: formatPhylloPosts(data, scrapedAt),
-    extras,
+    extras: coerceNumericExtras(extras),
   }
 }
