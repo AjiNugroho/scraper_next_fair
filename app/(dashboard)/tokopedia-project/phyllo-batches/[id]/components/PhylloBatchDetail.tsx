@@ -7,7 +7,15 @@ import {
   flexRender,
   type ColumnDef,
 } from "@tanstack/react-table"
-import { Loader2, ChevronLeft, ChevronRight, ArrowLeft, RotateCcw, RefreshCw } from "lucide-react"
+import {
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+  ArrowLeft,
+  RotateCcw,
+  RefreshCw,
+  Download,
+} from "lucide-react"
 import Link from "next/link"
 
 import { Button } from "@/components/ui/button"
@@ -65,10 +73,48 @@ function formatDate(iso: string | null) {
   return new Date(iso).toLocaleString()
 }
 
+async function fetchAllItems(id: string, status?: string): Promise<TokopediaPhylloBatchItem[]> {
+  const params = new URLSearchParams({ limit: "100000", offset: "0" })
+  if (status) params.set("status", status)
+  const res = await fetch(`/api/v1/internal/tokopedia/phyllo-batches/${id}?${params}`)
+  if (!res.ok) throw new Error("Failed to fetch items for download")
+  const data = await res.json()
+  return data.items as TokopediaPhylloBatchItem[]
+}
+
+function triggerCsvDownload(items: TokopediaPhylloBatchItem[], fileName: string) {
+  const headers = [
+    "hashtag", "worker", "url", "status", "attempts", "error", "sent_at", "updated_at",
+  ]
+  const rows = items.map((item) =>
+    [
+      item.hashtag,
+      item.workerName,
+      item.videoUrl,
+      item.status,
+      item.attempts,
+      item.error ?? "",
+      item.sentAt ?? "",
+      item.updatedAt,
+    ]
+      .map((v) => `"${String(v).replace(/"/g, '""')}"`)
+      .join(","),
+  )
+  const csv = [headers.join(","), ...rows].join("\n")
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement("a")
+  a.href = url
+  a.download = fileName
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 export function PhylloBatchDetail({ id }: { id: string }) {
   const [page, setPage] = useState(0)
   const [statusFilter, setStatusFilter] = useState("all")
   const [retryAllOpen, setRetryAllOpen] = useState(false)
+  const [downloading, setDownloading] = useState(false)
 
   const { data, isLoading, isError } = useTokopediaPhylloBatch(id, {
     status: statusFilter === "all" ? undefined : statusFilter,
@@ -167,6 +213,20 @@ export function PhylloBatchDetail({ id }: { id: string }) {
     setPage(0)
   }
 
+  async function handleDownload() {
+    if (!batch) return
+    setDownloading(true)
+    try {
+      const all = await fetchAllItems(id, statusFilter === "all" ? undefined : statusFilter)
+      const fileName = `${batch.batchDate}_${statusFilter}.csv`
+      triggerCsvDownload(all, fileName)
+    } catch {
+      // silent — user can retry
+    } finally {
+      setDownloading(false)
+    }
+  }
+
   const canRetry = !!batch && batch.status !== "running"
 
   return (
@@ -251,6 +311,20 @@ export function PhylloBatchDetail({ id }: { id: string }) {
             <SelectItem value="failed">Failed</SelectItem>
           </SelectContent>
         </Select>
+
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={handleDownload}
+          disabled={downloading || !batch}
+        >
+          {downloading ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Download className="h-3.5 w-3.5" />
+          )}
+          Download CSV
+        </Button>
       </div>
 
       {/* Table */}
