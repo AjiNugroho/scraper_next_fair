@@ -31,6 +31,14 @@ type FormValues = z.infer<typeof formSchema>
 
 const defaultDataItem = { hashtag: "" }
 
+// Fixed by the client contract (see lib/tiktok-data-formatter.ts) — always offered as a
+// starting point in the extras list, but left blank and optional.
+const DEFAULT_EXTRA_KEYS = ["account_name", "listen_group_id", "request_data_id"] as const
+
+function getDefaultExtraFields() {
+  return DEFAULT_EXTRA_KEYS.map((key) => ({ key, value: "" }))
+}
+
 export function SubmitRequestDialog() {
   const [open, setOpen] = useState(false)
   const [showExtras, setShowExtras] = useState(false)
@@ -44,7 +52,7 @@ export function SubmitRequestDialog() {
   } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      extra_fields: [],
+      extra_fields: getDefaultExtraFields(),
       data: [{ ...defaultDataItem }],
     },
   })
@@ -60,9 +68,10 @@ export function SubmitRequestDialog() {
   })
 
   async function onSubmit(values: FormValues) {
+    const filledExtras = values.extra_fields.filter((e) => e.value.trim() !== "")
     const extras =
-      values.extra_fields.length > 0
-        ? Object.fromEntries(values.extra_fields.map((e) => [e.key, e.value]))
+      filledExtras.length > 0
+        ? Object.fromEntries(filledExtras.map((e) => [e.key, e.value]))
         : undefined
 
     await submitRequest.mutateAsync({

@@ -33,6 +33,7 @@ import {
 import type { TokopediaHashtagRequest } from "../datahooks/useTokopediaRequests"
 import { useTokopediaRequests, useDeleteTokopediaRequests } from "../datahooks/useTokopediaRequests"
 import { SubmitRequestDialog } from "./SubmitRequestDialog"
+import { ImportRequestsDialog } from "./ImportRequestsDialog"
 import { EditRequestDialog } from "./EditRequestDialog"
 import { DeleteRequestDialog } from "./DeleteRequestDialog"
 
@@ -275,7 +276,10 @@ export function TokopediaRequestsManagement() {
         ) : (
           <div />
         )}
-        <SubmitRequestDialog />
+        <div className="flex gap-2">
+          <ImportRequestsDialog />
+          <SubmitRequestDialog />
+        </div>
       </div>
 
       <div className="rounded-md border">
