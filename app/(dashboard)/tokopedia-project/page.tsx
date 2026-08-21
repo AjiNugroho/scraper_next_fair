@@ -5,9 +5,9 @@ export default function TokopediaWorkersPage() {
   return (
     <Card className="bg-background border-none shadow-none ring-0">
       <CardHeader>
-        <CardTitle>Tokopedia Workers</CardTitle>
+        <CardTitle>Gopay Workers</CardTitle>
         <CardDescription>
-          Mobile scraper devices for the Tokopedia project. Hashtags submitted in Scrape Requests
+          Mobile scraper devices for the Gopay project. Hashtags submitted in Scrape Requests
           are rebalanced across these workers automatically.
         </CardDescription>
       </CardHeader>

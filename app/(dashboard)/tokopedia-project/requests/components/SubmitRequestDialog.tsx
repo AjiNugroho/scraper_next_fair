@@ -89,9 +89,9 @@ export function SubmitRequestDialog() {
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col gap-0">
         <DialogHeader className="shrink-0 pb-4">
-          <DialogTitle>Submit Tokopedia Scrape Request</DialogTitle>
+          <DialogTitle>Submit Gopay Scrape Request</DialogTitle>
           <DialogDescription>
-            Register hashtags for the Tokopedia project. Mobile workers are rebalanced
+            Register hashtags for the Gopay project. Mobile workers are rebalanced
             automatically. Results are delivered to the webhook configured on the server — up to
             50 hashtags per batch.
           </DialogDescription>

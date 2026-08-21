@@ -312,7 +312,7 @@ export function TokopediaRequestsManagement() {
                   colSpan={columns.length}
                   className="h-32 text-center text-muted-foreground"
                 >
-                  No Tokopedia requests submitted yet.
+                  No Gopay requests submitted yet.
                 </TableCell>
               </TableRow>
             ) : (

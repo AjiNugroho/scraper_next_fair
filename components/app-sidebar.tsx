@@ -48,7 +48,7 @@ const NAV_GROUPS = [
     ],
   },
   {
-    label: "Tokopedia",
+    label: "Gopay",
     items: [
       { title: "Scrape Requests", url: "/tokopedia-project/requests", icon: ShoppingBag },
       { title: "Workers", url: "/tokopedia-project", icon: Smartphone },

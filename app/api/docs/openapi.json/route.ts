@@ -44,7 +44,7 @@ const spec = {
     { name: "TikTok Jobs", description: tiktokDoc },
     { name: "TikTok Video Scraper" },
     {
-      name: "Tokopedia",
+      name: "Gopay",
       description:
         "Mobile workers poll `GET /tokopedia-jobs/{workerName}` for their assigned hashtags, then POST scraped video URLs to `/tokopedia-results`.",
     },
@@ -595,13 +595,13 @@ const spec = {
           in: "path",
           required: true,
           schema: { type: "string" },
-          description: "Name of the registered Tokopedia mobile worker (e.g. `worker-01`).",
+          description: "Name of the registered Gopay mobile worker (e.g. `worker-01`).",
         },
       ],
       get: {
-        summary: "Get hashtags assigned to a Tokopedia worker",
+        summary: "Get hashtags assigned to a Gopay worker",
         operationId: "tokopediaJobsGetWorkerHashtags",
-        tags: ["Tokopedia"],
+        tags: ["Gopay"],
         description:
           "Polled by a mobile worker to find out what it's currently assigned to scrape. Returns the list of hashtags currently assigned to the given worker. Returns 404 if the worker name is not registered.",
         responses: {
@@ -630,9 +630,9 @@ const spec = {
     },
     "/tokopedia-results": {
       post: {
-        summary: "Submit Tokopedia scrape results",
+        summary: "Submit Gopay scrape results",
         operationId: "tokopediaResultsCreate",
-        tags: ["Tokopedia"],
+        tags: ["Gopay"],
         description:
           "Called by a mobile worker to hand back the video URLs it collected while scraping one of its assigned hashtags.",
         requestBody: {
