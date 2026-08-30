@@ -38,6 +38,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Label } from "@/components/ui/label"
 import { useBulkBatchItems, useRetryBatchItems } from "../../datahooks/useBulkScrape"
 import type { BulkBatch, BulkBatchItem } from "../../datahooks/useBulkScrape"
 
@@ -140,6 +142,8 @@ export function BulkJobDetail({ id }: { id: string }) {
   const [page, setPage] = useState(0)
   const [statusFilter, setStatusFilter] = useState("all")
   const [downloading, setDownloading] = useState(false)
+  const [retryFailed, setRetryFailed] = useState(true)
+  const [retryRunning, setRetryRunning] = useState(true)
 
   const { data, isLoading, isError } = useBulkBatchItems(id, {
     status: statusFilter === "all" ? undefined : statusFilter,
@@ -286,13 +290,19 @@ export function BulkJobDetail({ id }: { id: string }) {
   }
 
   const eta = batch ? formatEta(batch) : null
-  const inQueue = batch
-    ? Math.max(batch.dispatched - batch.successCount - batch.failedCount, 0)
-    : 0
-  const retryEligible = batch ? batch.failedCount + inQueue : 0
+  // Ground truth straight off the item rows — batch.dispatched can drift from
+  // reality, so "In Queue" no longer derives from it.
+  const statusCounts = data?.statusCounts ?? { pending: 0, running: 0, success: 0, failed: 0 }
+  const inQueue = statusCounts.running
+  const selectedRetryCount =
+    (retryFailed ? statusCounts.failed : 0) + (retryRunning ? statusCounts.running : 0)
 
   function handleRetry() {
-    retry.mutate(id)
+    const statuses: ("failed" | "running")[] = []
+    if (retryFailed) statuses.push("failed")
+    if (retryRunning) statuses.push("running")
+    if (statuses.length === 0) return
+    retry.mutate({ id, statuses })
   }
 
   return (
@@ -368,28 +378,62 @@ export function BulkJobDetail({ id }: { id: string }) {
         <div className="flex items-center gap-2">
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button size="sm" variant="outline" disabled={retryEligible === 0 || retry.isPending}>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={statusCounts.failed + statusCounts.running === 0 || retry.isPending}
+              >
                 {retry.isPending ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 ) : (
                   <RotateCcw className="h-3.5 w-3.5" />
                 )}
-                Retry failed & stuck
+                Retry
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>Retry {retryEligible.toLocaleString()} item{retryEligible !== 1 ? "s" : ""}?</AlertDialogTitle>
+                <AlertDialogTitle>Retry items</AlertDialogTitle>
                 <AlertDialogDescription>
-                  This resets {batch?.failedCount ?? 0} failed and {inQueue} in-queue item
-                  {(batch?.failedCount ?? 0) + inQueue !== 1 ? "s" : ""} back to pending and
-                  redispatches them. If an in-queue item&apos;s original worker reply arrives after
-                  this, its result may double-count in the batch stats.
+                  Choose which statuses to reset back to pending and redispatch. Counts are live
+                  from the item table. If an in-queue item&apos;s original worker reply arrives
+                  after this, its result may double-count in the batch stats.
                 </AlertDialogDescription>
               </AlertDialogHeader>
+              <div className="flex flex-col gap-3 py-1">
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="retry-failed"
+                    checked={retryFailed}
+                    onCheckedChange={(checked) => setRetryFailed(checked === true)}
+                  />
+                  <Label htmlFor="retry-failed" className="flex-1 font-normal">
+                    Failed
+                  </Label>
+                  <span className="text-sm text-muted-foreground tabular-nums">
+                    {statusCounts.failed.toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="retry-running"
+                    checked={retryRunning}
+                    onCheckedChange={(checked) => setRetryRunning(checked === true)}
+                  />
+                  <Label htmlFor="retry-running" className="flex-1 font-normal">
+                    In queue / stuck
+                  </Label>
+                  <span className="text-sm text-muted-foreground tabular-nums">
+                    {statusCounts.running.toLocaleString()}
+                  </span>
+                </div>
+              </div>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleRetry}>Retry</AlertDialogAction>
+                <AlertDialogAction onClick={handleRetry} disabled={selectedRetryCount === 0}>
+                  Retry {selectedRetryCount.toLocaleString()} item
+                  {selectedRetryCount !== 1 ? "s" : ""}
+                </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>

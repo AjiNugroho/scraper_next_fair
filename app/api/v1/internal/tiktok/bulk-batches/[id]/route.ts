@@ -25,7 +25,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     ? and(eq(tiktokBulkBatchItem.batchId, id), eq(tiktokBulkBatchItem.status, status))
     : eq(tiktokBulkBatchItem.batchId, id)
 
-  const [items, [{ total }]] = await Promise.all([
+  const [items, [{ total }], statusCountRows] = await Promise.all([
     db
       .select({
         id: tiktokBulkBatchItem.id,
@@ -51,9 +51,23 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       .limit(limit)
       .offset(offset),
     db.select({ total: count() }).from(tiktokBulkBatchItem).where(itemsWhere),
+    // Ground truth for how many items are actually in each status right now —
+    // unlike batch.dispatched/successCount/failedCount (running counters that
+    // can drift), this is a live count straight off the item rows. Always
+    // scoped to the whole batch, independent of the `status` filter above.
+    db
+      .select({ status: tiktokBulkBatchItem.status, count: count() })
+      .from(tiktokBulkBatchItem)
+      .where(eq(tiktokBulkBatchItem.batchId, id))
+      .groupBy(tiktokBulkBatchItem.status),
   ])
 
-  return NextResponse.json({ batch, items, total, limit, offset })
+  const statusCounts = { pending: 0, running: 0, success: 0, failed: 0 }
+  for (const row of statusCountRows) {
+    if (row.status in statusCounts) statusCounts[row.status as keyof typeof statusCounts] = row.count
+  }
+
+  return NextResponse.json({ batch, items, total, limit, offset, statusCounts })
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

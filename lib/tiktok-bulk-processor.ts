@@ -135,20 +135,22 @@ export async function startBatch(batchId: string): Promise<void> {
   await maybeMarkDone(batchId)
 }
 
-// Resets every `failed` or `running` item in the batch back to `pending` and
-// redispatches exactly those items. `running` items are included unconditionally
-// (no staleness check) — if the original worker replies after this runs, its
-// webhook will still land on the same item row and can double-count that one
-// item's result. Acceptable tradeoff for a manually triggered admin action.
-export async function retryFailedAndStuck(batchId: string): Promise<number> {
+export type RetryableStatus = "failed" | "running"
+
+// Resets every item in the batch whose current status is in `statuses` back to
+// `pending` and redispatches exactly those items. `running` items are included
+// unconditionally (no staleness check) — if the original worker replies after
+// this runs, its webhook will still land on the same item row and can
+// double-count that one item's result. Acceptable tradeoff for a manually
+// triggered admin action.
+export async function retryItems(batchId: string, statuses: RetryableStatus[]): Promise<number> {
+  if (statuses.length === 0) return 0
+
   const targets = await db
     .select()
     .from(tiktokBulkBatchItem)
     .where(
-      and(
-        eq(tiktokBulkBatchItem.batchId, batchId),
-        or(eq(tiktokBulkBatchItem.status, "failed"), eq(tiktokBulkBatchItem.status, "running")),
-      ),
+      and(eq(tiktokBulkBatchItem.batchId, batchId), inArray(tiktokBulkBatchItem.status, statuses)),
     )
 
   if (targets.length === 0) return 0
@@ -166,7 +168,7 @@ export async function retryFailedAndStuck(batchId: string): Promise<number> {
     .where(
       and(
         inArray(tiktokBulkBatchItem.id, targetIds),
-        or(eq(tiktokBulkBatchItem.status, "failed"), eq(tiktokBulkBatchItem.status, "running")),
+        inArray(tiktokBulkBatchItem.status, statuses),
       ),
     )
     .returning({ id: tiktokBulkBatchItem.id })

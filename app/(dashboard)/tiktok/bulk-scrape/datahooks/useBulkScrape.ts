@@ -35,6 +35,13 @@ export type BulkBatchItem = {
   productDetail: Record<string, unknown> | null
 }
 
+export type BulkBatchStatusCounts = {
+  pending: number
+  running: number
+  success: number
+  failed: number
+}
+
 const BATCHES_KEY = ["tiktok-bulk-batches"] as const
 
 export function useBulkBatches(options: { limit?: number; offset?: number } = {}) {
@@ -68,7 +75,12 @@ export function useBulkBatchItems(
       if (status) params.set("status", status)
       const res = await fetch(`/api/v1/internal/tiktok/bulk-batches/${id}?${params}`)
       if (!res.ok) throw new Error("Failed to fetch batch items")
-      return res.json() as Promise<{ batch: BulkBatch; items: BulkBatchItem[]; total: number }>
+      return res.json() as Promise<{
+        batch: BulkBatch
+        items: BulkBatchItem[]
+        total: number
+        statusCounts: BulkBatchStatusCounts
+      }>
     },
     refetchInterval: (query) => {
       const batch = query.state.data?.batch
@@ -147,9 +159,11 @@ export function useStopBatch() {
 export function useRetryBatchItems() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async ({ id, statuses }: { id: string; statuses: ("failed" | "running")[] }) => {
       const res = await fetch(`/api/v1/internal/tiktok/bulk-batches/${id}/retry`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ statuses }),
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
