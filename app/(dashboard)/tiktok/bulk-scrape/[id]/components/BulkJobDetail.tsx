@@ -7,7 +7,7 @@ import {
   flexRender,
   type ColumnDef,
 } from "@tanstack/react-table"
-import { Loader2, ChevronLeft, ChevronRight, Download, ArrowLeft } from "lucide-react"
+import { Loader2, ChevronLeft, ChevronRight, Download, ArrowLeft, RotateCcw } from "lucide-react"
 import Link from "next/link"
 
 import { Button } from "@/components/ui/button"
@@ -27,7 +27,18 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Card } from "@/components/ui/card"
-import { useBulkBatchItems } from "../../datahooks/useBulkScrape"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+import { useBulkBatchItems, useRetryBatchItems } from "../../datahooks/useBulkScrape"
 import type { BulkBatch, BulkBatchItem } from "../../datahooks/useBulkScrape"
 
 const PAGE_SIZE = 50
@@ -135,6 +146,7 @@ export function BulkJobDetail({ id }: { id: string }) {
     limit: PAGE_SIZE,
     offset: page * PAGE_SIZE,
   })
+  const retry = useRetryBatchItems()
 
   const batch = data?.batch
   const items = data?.items ?? []
@@ -277,6 +289,11 @@ export function BulkJobDetail({ id }: { id: string }) {
   const inQueue = batch
     ? Math.max(batch.dispatched - batch.successCount - batch.failedCount, 0)
     : 0
+  const retryEligible = batch ? batch.failedCount + inQueue : 0
+
+  function handleRetry() {
+    retry.mutate(id)
+  }
 
   return (
     <Card className="bg-background border-none shadow-none ring-0 space-y-4">
@@ -348,19 +365,49 @@ export function BulkJobDetail({ id }: { id: string }) {
           </SelectContent>
         </Select>
 
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={handleDownload}
-          disabled={downloading || !batch}
-        >
-          {downloading ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <Download className="h-3.5 w-3.5" />
-          )}
-          Download all CSV
-        </Button>
+        <div className="flex items-center gap-2">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button size="sm" variant="outline" disabled={retryEligible === 0 || retry.isPending}>
+                {retry.isPending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <RotateCcw className="h-3.5 w-3.5" />
+                )}
+                Retry failed & stuck
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Retry {retryEligible.toLocaleString()} item{retryEligible !== 1 ? "s" : ""}?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This resets {batch?.failedCount ?? 0} failed and {inQueue} in-queue item
+                  {(batch?.failedCount ?? 0) + inQueue !== 1 ? "s" : ""} back to pending and
+                  redispatches them. If an in-queue item&apos;s original worker reply arrives after
+                  this, its result may double-count in the batch stats.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleRetry}>Retry</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleDownload}
+            disabled={downloading || !batch}
+          >
+            {downloading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Download className="h-3.5 w-3.5" />
+            )}
+            Download all CSV
+          </Button>
+        </div>
       </div>
 
       {/* Table */}

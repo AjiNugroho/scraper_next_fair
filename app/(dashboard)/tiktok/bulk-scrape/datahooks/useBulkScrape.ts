@@ -144,6 +144,27 @@ export function useStopBatch() {
   })
 }
 
+export function useRetryBatchItems() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/v1/internal/tiktok/bulk-batches/${id}/retry`, {
+        method: "POST",
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error((err as { error?: string }).error ?? "Failed to retry items")
+      }
+      return res.json() as Promise<{ success: boolean; queued: number }>
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: BATCHES_KEY })
+      toast.success(`Retrying ${data.queued.toLocaleString()} item${data.queued !== 1 ? "s" : ""}`)
+    },
+    onError: (err: Error) => toast.error(err.message),
+  })
+}
+
 export function useDeleteBulkBatch() {
   const queryClient = useQueryClient()
   return useMutation({
