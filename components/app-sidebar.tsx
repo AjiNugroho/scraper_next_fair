@@ -3,7 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Globe2, LayoutDashboard, Users, KeyRound, ScrollText, Webhook, Smartphone, FileUp, Waypoints, FlaskConical, ShoppingBag } from "lucide-react"
+import { Globe2, LayoutDashboard, Users, KeyRound, ScrollText, Webhook, Smartphone, FileUp, Waypoints, FlaskConical, ShoppingBag, Sparkles } from "lucide-react"
 import { FaHashtag, FaInstagram, FaSpider } from "react-icons/fa"
 import { FaTiktok } from "react-icons/fa6"
 import { authClient } from "@/lib/auth-client"
@@ -45,6 +45,16 @@ const NAV_GROUPS = [
       { title: "BrightData Jobs", url: "/tiktok/scrape-jobs", icon: FaSpider },
       { title: "Bulk Video Scrape", url: "/tiktok/bulk-scrape", icon: FileUp },
       { title: "Scraper Tester", url: "/tiktok/scraper-tests", icon: FlaskConical },
+    ],
+  },
+  {
+    label: "TikTok Beauty",
+    items: [
+      { title: "Scrape Requests", url: "/tiktok-beauty-scraper/requests", icon: Sparkles },
+      { title: "Mobile Workers", url: "/tiktok-beauty-scraper/mobile-worker", icon: Smartphone },
+      { title: "Hashtags", url: "/tiktok-beauty-scraper/hashtags", icon: FaHashtag },
+      { title: "Scraped Videos", url: "/tiktok-beauty-scraper/scraped-videos", icon: BiSolidVideos },
+      { title: "Video Dispatcher", url: "/tiktok-beauty-scraper/video-dispatcher", icon: Waypoints },
     ],
   },
   {

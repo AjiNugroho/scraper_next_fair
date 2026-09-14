@@ -1,0 +1,112 @@
+import { NextRequest, NextResponse } from "next/server"
+import { db } from "@/db/drizzle"
+import { tiktokBeautyPhylloJobRunItem, tiktokHashtagRequest } from "@/db/tiktok-schema"
+import { webhookDeliveryLog } from "@/db/scraper-schema"
+import { eq } from "drizzle-orm"
+import { buildPhylloClientPayload } from "@/lib/tiktok-data-formatter"
+
+// Phyllo callback for the TikTok Beauty dispatcher. The callback_id identifies a
+// single run item, which belongs to exactly one request — results go only to that
+// request's webhook, even if other requests share the same hashtag.
+export async function POST(req: NextRequest) {
+  let rawBody: unknown
+  try {
+    rawBody = await req.json()
+  } catch {
+    return NextResponse.json({ success: false, error: "Invalid JSON body" }, { status: 400 })
+  }
+
+  const body = rawBody as {
+    callback_id?: string
+    job_id?: string
+    data?: unknown[]
+    date_scrape?: string
+  }
+  const callbackId = body.callback_id ?? null
+  const rawData = Array.isArray(body.data) ? body.data : []
+  const totalCount = rawData.length
+
+  let clientWebhook: string | null = null
+  let extras: Record<string, unknown> = {}
+  let requestId: string | null = null
+  let identifier: string | null = null
+
+  if (callbackId) {
+    const [item] = await db
+      .select()
+      .from(tiktokBeautyPhylloJobRunItem)
+      .where(eq(tiktokBeautyPhylloJobRunItem.callbackId, callbackId))
+      .limit(1)
+
+    if (item) {
+      requestId = item.requestId
+      identifier = item.hashtag
+
+      await db
+        .update(tiktokBeautyPhylloJobRunItem)
+        .set({ providerJobId: body.job_id ?? null })
+        .where(eq(tiktokBeautyPhylloJobRunItem.id, item.id))
+
+      const [request] = await db
+        .select()
+        .from(tiktokHashtagRequest)
+        .where(eq(tiktokHashtagRequest.id, item.requestId))
+        .limit(1)
+
+      if (request) {
+        clientWebhook = request.webhookUrl ?? null
+        extras = (request.extras as Record<string, unknown>) ?? {}
+      }
+    } else {
+      console.error(`[webhook/tiktok-beauty/phyllo] no item found for callback_id ${callbackId}`)
+    }
+  }
+
+  const outgoingPayload = buildPhylloClientPayload({
+    identifier,
+    data: rawData,
+    extras,
+    dateScraped: body.date_scrape ?? null,
+  })
+
+  let statusCode: number | null = null
+  let responseBody: string | null = null
+  let errorMessage: string | null = null
+
+  if (clientWebhook) {
+    try {
+      const clientRes = await fetch(clientWebhook, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(outgoingPayload),
+      })
+      statusCode = clientRes.status
+      responseBody = await clientRes.text()
+      if (!clientRes.ok) {
+        errorMessage = `Webhook responded with status ${statusCode}`
+        console.error(`[webhook/tiktok-beauty/phyllo] client webhook ${statusCode}:`, responseBody)
+      }
+    } catch (err) {
+      errorMessage = err instanceof Error ? err.message : "Unknown error"
+      console.error("[webhook/tiktok-beauty/phyllo] client webhook delivery failed:", err)
+    }
+  }
+
+  await db
+    .insert(webhookDeliveryLog)
+    .values({
+      requestId,
+      platform: "tiktok_beauty_phyllo",
+      accountName: identifier,
+      clientWebhook,
+      totalCount,
+      validCount: outgoingPayload.posts.length,
+      statusCode,
+      responseBody,
+      errorMessage,
+      payload: clientWebhook && errorMessage ? outgoingPayload : null,
+    })
+    .catch((err) => console.error("[webhook/tiktok-beauty/phyllo] log insert failed:", err))
+
+  return NextResponse.json({ success: true, received: totalCount })
+}

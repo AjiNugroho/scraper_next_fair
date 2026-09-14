@@ -134,6 +134,59 @@ export const tiktokPhylloScrapeJobRunItem = pgTable(
   ],
 )
 
+// TikTok Beauty dispatcher: sends collected video URLs to Phyllo for requests in
+// tiktok_hashtag_request. Items are keyed per request (not per hashtag), so Phyllo
+// results are delivered only to the request that was selected, even when several
+// requests share the same hashtag.
+export const tiktokBeautyPhylloJobRun = pgTable("tiktok_beauty_phyllo_job_run", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+  itemsSent: integer("items_sent").notNull().default(0),
+  videoUrlsCount: integer("video_urls_count").notNull().default(0),
+  status: text("status").notNull().default("running"), // "running" | "done" | "partial" | "failed"
+  isCustom: boolean("is_custom").notNull().default(false),
+  // null = every eligible request at run time
+  filterRequestIds: jsonb("filter_request_ids").$type<string[] | null>(),
+  // Hashtags of the requests the run resolved to, kept for display
+  hashtags: jsonb("hashtags").$type<string[]>(),
+  requestsCount: integer("requests_count").notNull().default(0),
+  filterFrom: timestamp("filter_from"),
+  filterTo: timestamp("filter_to"),
+})
+
+export const tiktokBeautyPhylloJobRunItem = pgTable(
+  "tiktok_beauty_phyllo_job_run_item",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    jobRunId: uuid("job_run_id")
+      .notNull()
+      .references(() => tiktokBeautyPhylloJobRun.id, { onDelete: "cascade" }),
+    requestId: uuid("request_id")
+      .notNull()
+      .references(() => tiktokHashtagRequest.id, { onDelete: "cascade" }),
+    hashtag: text("hashtag").notNull(),
+    webhookUrl: text("webhook_url").notNull(),
+    url: text("url").notNull(),
+    callbackId: text("callback_id").notNull().unique(),
+    providerJobId: text("provider_job_id"),
+    status: text("status").notNull().default("pending"), // pending | sent | failed
+    attempts: integer("attempts").notNull().default(0),
+    error: text("error"),
+    sentAt: timestamp("sent_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("tiktok_beauty_phyllo_job_run_item_job_run_id_idx").on(table.jobRunId),
+    index("tiktok_beauty_phyllo_job_run_item_status_idx").on(table.status),
+    index("tiktok_beauty_phyllo_job_run_item_request_id_idx").on(table.requestId),
+  ],
+)
+
 // One-off end-to-end test of a single video URL against a provider. Deliberately
 // decoupled from tiktok_hashtag_request so test traffic never enters the real
 // scrape jobs (which pick up any request row that has a webhook_url).

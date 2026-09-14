@@ -1,15 +1,17 @@
 "use client"
 
-import { useState, useMemo, useCallback } from "react"
+import { useState, useMemo, useEffect, type ReactNode } from "react"
 import {
   useReactTable,
   getCoreRowModel,
   flexRender,
   type ColumnDef,
+  type Row,
   type RowSelectionState,
 } from "@tanstack/react-table"
-import { Trash2, ChevronLeft, ChevronRight, Loader2, Search, X } from "lucide-react"
+import { Check, ChevronLeft, ChevronRight, Copy, Loader2, Search, Trash2, X } from "lucide-react"
 import { useDebounce } from "use-debounce"
+import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -22,14 +24,6 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog"
-import {
   Table,
   TableBody,
   TableCell,
@@ -38,134 +32,82 @@ import {
   TableRow,
 } from "@/components/ui/table"
 
-import type { TiktokVideoResult } from "../datahooks/useTiktokResults"
 import {
-  useTiktokResults,
-  useDeleteTiktokResult,
-  useDeleteTiktokResults,
-} from "../datahooks/useTiktokResults"
+  DeleteBulkDialog,
+  DeleteSingleDialog,
+} from "@/app/(dashboard)/tiktok/results/components/ResultsTable"
+
+import type { BeautyVideo } from "../datahooks/useBeautyVideos"
+import { useBeautyVideos } from "../datahooks/useBeautyVideos"
 
 const PAGE_SIZE = 20
 
-function videoId(url: string) {
-  return url.split("/").pop() ?? url
+function dayKey(date: string) {
+  const d = new Date(date)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
 }
 
-export function DeleteSingleDialog({
-  row,
-  open,
-  onOpenChange,
-}: {
-  row: TiktokVideoResult | null
-  open: boolean
-  onOpenChange: (v: boolean) => void
-}) {
-  const [confirm, setConfirm] = useState("")
-  const deleteOne = useDeleteTiktokResult()
-  const id = row ? videoId(row.videoUrl) : ""
+function dayLabel(date: string) {
+  const key = dayKey(date)
+  const today = new Date()
+  const yesterday = new Date(today)
+  yesterday.setDate(today.getDate() - 1)
 
-  async function handleDelete() {
-    if (!row) return
-    await deleteOne.mutateAsync(row.id)
-    onOpenChange(false)
-    setConfirm("")
+  const formatted = new Date(date).toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  })
+  if (key === dayKey(today.toISOString())) return `Today · ${formatted}`
+  if (key === dayKey(yesterday.toISOString())) return `Yesterday · ${formatted}`
+  return formatted
+}
+
+function CopyUrlButton({ url }: { url: string }) {
+  const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    if (!copied) return
+    const timeout = setTimeout(() => setCopied(false), 1500)
+    return () => clearTimeout(timeout)
+  }, [copied])
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+      toast.success("Video URL copied")
+    } catch {
+      toast.error("Failed to copy URL")
+    }
   }
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) setConfirm("") }}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Delete video URL</DialogTitle>
-          <DialogDescription>
-            This action cannot be undone. Type the video ID{" "}
-            <span className="font-mono font-semibold text-foreground">{id}</span> to confirm.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-3">
-          <p className="text-sm text-muted-foreground break-all">{row?.videoUrl}</p>
-          <Input
-            placeholder={id}
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-          />
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button
-            variant="destructive"
-            disabled={confirm !== id || deleteOne.isPending}
-            onClick={handleDelete}
-          >
-            {deleteOne.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-            Delete
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <Button
+      variant="ghost"
+      size="icon"
+      className="h-7 w-7 shrink-0"
+      onClick={handleCopy}
+      aria-label="Copy video URL"
+      title="Copy video URL"
+    >
+      {copied ? <Check className="h-3.5 w-3.5 text-primary" /> : <Copy className="h-3.5 w-3.5" />}
+    </Button>
   )
 }
 
-export function DeleteBulkDialog({
-  ids,
-  open,
-  onOpenChange,
-}: {
-  ids: string[]
-  open: boolean
-  onOpenChange: (v: boolean) => void
-}) {
-  const [confirm, setConfirm] = useState("")
-  const deleteMany = useDeleteTiktokResults()
-
-  async function handleDelete() {
-    await deleteMany.mutateAsync(ids)
-    onOpenChange(false)
-    setConfirm("")
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) setConfirm("") }}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Delete {ids.length} video URL{ids.length !== 1 ? "s" : ""}</DialogTitle>
-          <DialogDescription>
-            This action cannot be undone. Type{" "}
-            <span className="font-mono font-semibold text-foreground">DELETE</span> to confirm.
-          </DialogDescription>
-        </DialogHeader>
-        <Input
-          placeholder="DELETE"
-          value={confirm}
-          onChange={(e) => setConfirm(e.target.value)}
-        />
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button
-            variant="destructive"
-            disabled={confirm !== "DELETE" || deleteMany.isPending}
-            onClick={handleDelete}
-          >
-            {deleteMany.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-            Delete {ids.length} item{ids.length !== 1 ? "s" : ""}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-export function ResultsTable({ hashtags }: { hashtags: string[] }) {
+export function BeautyVideosTable({ hashtags }: { hashtags: string[] }) {
   const [page, setPage] = useState(0)
   const [searchInput, setSearchInput] = useState("")
   const [search] = useDebounce(searchInput, 300)
   const [hashtag, setHashtag] = useState("")
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
-  const [deleteSingle, setDeleteSingle] = useState<TiktokVideoResult | null>(null)
+  const [deleteSingle, setDeleteSingle] = useState<BeautyVideo | null>(null)
   const [bulkOpen, setBulkOpen] = useState(false)
 
-  const resetPage = useCallback(() => setPage(0), [])
-
-  const { data, isLoading, isError } = useTiktokResults({
+  // API returns results ordered by createdAt desc, so day groups come out newest first.
+  const { data, isLoading, isError } = useBeautyVideos({
     search,
     hashtag,
     limit: PAGE_SIZE,
@@ -178,7 +120,7 @@ export function ResultsTable({ hashtags }: { hashtags: string[] }) {
 
   const selectedIds = Object.keys(rowSelection).filter((k) => rowSelection[k])
 
-  const columns = useMemo<ColumnDef<TiktokVideoResult>[]>(
+  const columns = useMemo<ColumnDef<BeautyVideo>[]>(
     () => [
       {
         id: "select",
@@ -216,15 +158,18 @@ export function ResultsTable({ hashtags }: { hashtags: string[] }) {
         accessorKey: "videoUrl",
         header: "Video URL",
         cell: ({ row }) => (
-          <a
-            href={row.original.videoUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm text-primary underline-offset-4 hover:underline max-w-xs truncate block"
-            title={row.original.videoUrl}
-          >
-            {row.original.videoUrl}
-          </a>
+          <div className="flex items-center gap-1 max-w-sm">
+            <a
+              href={row.original.videoUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-primary underline-offset-4 hover:underline truncate"
+              title={row.original.videoUrl}
+            >
+              {row.original.videoUrl}
+            </a>
+            <CopyUrlButton url={row.original.videoUrl} />
+          </div>
         ),
       },
       {
@@ -232,10 +177,7 @@ export function ResultsTable({ hashtags }: { hashtags: string[] }) {
         header: "Collected",
         cell: ({ row }) => (
           <span className="text-sm text-muted-foreground whitespace-nowrap">
-            {new Date(row.original.createdAt).toLocaleDateString("en-US", {
-              year: "numeric",
-              month: "short",
-              day: "numeric",
+            {new Date(row.original.createdAt).toLocaleTimeString("en-US", {
               hour: "2-digit",
               minute: "2-digit",
             })}
@@ -271,16 +213,94 @@ export function ResultsTable({ hashtags }: { hashtags: string[] }) {
     enableRowSelection: true,
   })
 
+  const dayGroups: { key: string; label: string; rows: Row<BeautyVideo>[] }[] = []
+  for (const row of table.getRowModel().rows) {
+    const key = dayKey(row.original.createdAt)
+    const last = dayGroups[dayGroups.length - 1]
+    if (last?.key === key) last.rows.push(row)
+    else dayGroups.push({ key, label: dayLabel(row.original.createdAt), rows: [row] })
+  }
+
   function handleHashtagChange(val: string) {
     setHashtag(val === "_all" ? "" : val)
-    resetPage()
+    setPage(0)
     setRowSelection({})
   }
 
   function handleSearchChange(val: string) {
     setSearchInput(val)
-    resetPage()
+    setPage(0)
     setRowSelection({})
+  }
+
+  function toggleDay(rows: Row<BeautyVideo>[], value: boolean) {
+    setRowSelection((prev) => {
+      const next = { ...prev }
+      for (const row of rows) {
+        if (value) next[row.id] = true
+        else delete next[row.id]
+      }
+      return next
+    })
+  }
+
+  let body: ReactNode
+  if (isLoading) {
+    body = (
+      <TableRow>
+        <TableCell colSpan={columns.length} className="h-32 text-center">
+          <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
+        </TableCell>
+      </TableRow>
+    )
+  } else if (isError) {
+    body = (
+      <TableRow>
+        <TableCell colSpan={columns.length} className="h-32 text-center text-destructive">
+          Failed to load results.
+        </TableCell>
+      </TableRow>
+    )
+  } else if (results.length === 0) {
+    body = (
+      <TableRow>
+        <TableCell colSpan={columns.length} className="h-32 text-center text-muted-foreground">
+          No results found.
+        </TableCell>
+      </TableRow>
+    )
+  } else {
+    body = dayGroups.map((group) => {
+      const allSelected = group.rows.every((r) => r.getIsSelected())
+      return [
+        <TableRow key={`day-${group.key}`} className="bg-muted/50 hover:bg-muted/50">
+          <TableCell>
+            <Checkbox
+              checked={allSelected}
+              onCheckedChange={(v: boolean) => toggleDay(group.rows, v)}
+              aria-label={`Select all videos from ${group.label}`}
+            />
+          </TableCell>
+          <TableCell colSpan={columns.length - 1}>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold">{group.label}</span>
+              <span className="text-xs text-muted-foreground">
+                {group.rows.length} video{group.rows.length !== 1 ? "s" : ""}
+              </span>
+            </div>
+          </TableCell>
+        </TableRow>,
+        ...group.rows.map((row) => (
+          <TableRow key={row.id} data-state={row.getIsSelected() ? "selected" : undefined}>
+            {row.getVisibleCells().map((cell) => (
+              <TableCell key={cell.id}>
+                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+              </TableCell>
+            ))}
+          </TableRow>
+        )),
+      ]
+    })
   }
 
   return (
@@ -318,11 +338,7 @@ export function ResultsTable({ hashtags }: { hashtags: string[] }) {
         </Select>
 
         {selectedIds.length > 0 && (
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={() => setBulkOpen(true)}
-          >
+          <Button variant="destructive" size="sm" onClick={() => setBulkOpen(true)}>
             <Trash2 className="h-3.5 w-3.5" />
             Delete {selectedIds.length} selected
           </Button>
@@ -345,37 +361,7 @@ export function ResultsTable({ hashtags }: { hashtags: string[] }) {
               </TableRow>
             ))}
           </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={columns.length} className="h-32 text-center">
-                  <Loader2 className="h-5 w-5 animate-spin mx-auto text-muted-foreground" />
-                </TableCell>
-              </TableRow>
-            ) : isError ? (
-              <TableRow>
-                <TableCell colSpan={columns.length} className="h-32 text-center text-destructive">
-                  Failed to load results.
-                </TableCell>
-              </TableRow>
-            ) : results.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={columns.length} className="h-32 text-center text-muted-foreground">
-                  No results found.
-                </TableCell>
-              </TableRow>
-            ) : (
-              table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id} data-state={row.getIsSelected() ? "selected" : undefined}>
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
-            )}
-          </TableBody>
+          <TableBody>{body}</TableBody>
         </Table>
       </div>
 
@@ -417,7 +403,10 @@ export function ResultsTable({ hashtags }: { hashtags: string[] }) {
       <DeleteBulkDialog
         ids={selectedIds}
         open={bulkOpen}
-        onOpenChange={setBulkOpen}
+        onOpenChange={(v) => {
+          setBulkOpen(v)
+          if (!v) setRowSelection({})
+        }}
       />
     </div>
   )

@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { keepPreviousData, useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
 export type TiktokHashtag = {
@@ -12,16 +12,19 @@ export type TiktokHashtag = {
 export interface ListHashtagsOptions {
   limit?: number
   offset?: number
+  search?: string
 }
 
 const HASHTAGS_KEY = ["tiktok-hashtags"] as const
 
 export function useTiktokHashtags(options: ListHashtagsOptions = {}) {
-  const { limit = 50, offset = 0 } = options
+  const { limit = 50, offset = 0, search } = options
   return useQuery({
-    queryKey: [...HASHTAGS_KEY, { limit, offset }],
+    queryKey: [...HASHTAGS_KEY, { limit, offset, search }],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const params = new URLSearchParams({ limit: String(limit), offset: String(offset) })
+      if (search) params.set("search", search)
       const res = await fetch(`/api/v1/internal/tiktok/hashtags?${params}`)
       if (!res.ok) throw new Error("Failed to fetch hashtags")
       return res.json() as Promise<{ hashtags: TiktokHashtag[]; total: number }>

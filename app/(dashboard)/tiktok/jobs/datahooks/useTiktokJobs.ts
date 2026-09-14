@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { keepPreviousData, useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
 export type TiktokJobRequest = {
@@ -25,16 +25,23 @@ export type SubmitJobInput = {
 export interface ListJobsOptions {
   limit?: number
   offset?: number
+  search?: string
+  listenGroupId?: number
+  requestDataId?: number
 }
 
 const JOBS_KEY = ["tiktok-jobs"] as const
 
 export function useTiktokJobs(options: ListJobsOptions = {}) {
-  const { limit = 20, offset = 0 } = options
+  const { limit = 20, offset = 0, search, listenGroupId, requestDataId } = options
   return useQuery({
-    queryKey: [...JOBS_KEY, { limit, offset }],
+    queryKey: [...JOBS_KEY, { limit, offset, search, listenGroupId, requestDataId }],
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const params = new URLSearchParams({ limit: String(limit), offset: String(offset) })
+      if (search) params.set("search", search)
+      if (listenGroupId !== undefined) params.set("listenGroupId", String(listenGroupId))
+      if (requestDataId !== undefined) params.set("requestDataId", String(requestDataId))
       const res = await fetch(`/api/v1/internal/tiktok/jobs?${params}`)
       if (!res.ok) throw new Error("Failed to fetch jobs")
       return res.json() as Promise<{ requests: TiktokJobRequest[]; total: number }>

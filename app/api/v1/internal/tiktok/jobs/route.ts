@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/db/drizzle"
 import { tiktokHashtagRequest, tiktokJobHashtag } from "@/db/tiktok-schema"
-import { desc, count, inArray } from "drizzle-orm"
+import { and, count, desc, eq, ilike, inArray, or, sql, type SQL } from "drizzle-orm"
 import { auth } from "@/lib/auth"
 import { z } from "zod"
 import { rebalance } from "@/lib/tiktok-rebalance"
@@ -26,15 +26,33 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const limit = Math.min(parseInt(searchParams.get("limit") ?? "20"), 100)
   const offset = Math.max(parseInt(searchParams.get("offset") ?? "0"), 0)
+  const search = searchParams.get("search")?.trim() ?? ""
+  const listenGroupId = parseInt(searchParams.get("listenGroupId") ?? "")
+  const requestDataId = parseInt(searchParams.get("requestDataId") ?? "")
+
+  const filters: SQL[] = []
+  if (search) {
+    const pattern = `%${search}%`
+    filters.push(
+      or(
+        ilike(tiktokHashtagRequest.hashtag, pattern),
+        sql`${tiktokHashtagRequest.extras}::text ilike ${pattern}`,
+      )!,
+    )
+  }
+  if (!Number.isNaN(listenGroupId)) filters.push(eq(tiktokHashtagRequest.listenGroupId, listenGroupId))
+  if (!Number.isNaN(requestDataId)) filters.push(eq(tiktokHashtagRequest.requestDataId, requestDataId))
+  const where = filters.length > 0 ? and(...filters) : undefined
 
   const [rows, [{ total }]] = await Promise.all([
     db
       .select()
       .from(tiktokHashtagRequest)
+      .where(where)
       .orderBy(desc(tiktokHashtagRequest.createdAt))
       .limit(limit)
       .offset(offset),
-    db.select({ total: count() }).from(tiktokHashtagRequest),
+    db.select({ total: count() }).from(tiktokHashtagRequest).where(where),
   ])
 
   return NextResponse.json({ requests: rows, total })

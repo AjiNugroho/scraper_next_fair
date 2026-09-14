@@ -8,20 +8,13 @@ import {
   type ColumnDef,
   type RowSelectionState,
 } from "@tanstack/react-table"
-import { ChevronLeft, ChevronRight, Loader2, Trash2 } from "lucide-react"
+import { useDebounce } from "use-debounce"
+import { ChevronLeft, ChevronRight, Loader2, Search, Trash2, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog"
 import {
   Table,
   TableBody,
@@ -31,10 +24,12 @@ import {
   TableRow,
 } from "@/components/ui/table"
 
-import type { TiktokHashtag } from "../datahooks/useTiktokHashtags"
-import { useTiktokHashtags, useDeleteTiktokHashtags } from "../datahooks/useTiktokHashtags"
-import { AddHashtagDialog } from "./AddHashtagDialog"
-import { DeleteHashtagDialog } from "./DeleteHashtagDialog"
+import { AddHashtagDialog } from "@/app/(dashboard)/tiktok/hashtags/components/AddHashtagDialog"
+import { DeleteHashtagDialog } from "@/app/(dashboard)/tiktok/hashtags/components/DeleteHashtagDialog"
+import { DeleteBulkHashtagsDialog } from "@/app/(dashboard)/tiktok/hashtags/components/TiktokHashtagsManagement"
+
+import type { BeautyHashtag } from "../datahooks/useBeautyHashtags"
+import { useBeautyHashtags } from "../datahooks/useBeautyHashtags"
 
 const PAGE_SIZE = 50
 
@@ -48,71 +43,18 @@ function formatDate(date: string) {
   })
 }
 
-export function DeleteBulkHashtagsDialog({
-  ids,
-  open,
-  onOpenChange,
-}: {
-  ids: string[]
-  open: boolean
-  onOpenChange: (open: boolean) => void
-}) {
-  const [confirm, setConfirm] = useState("")
-  const deleteMany = useDeleteTiktokHashtags()
-
-  async function handleDelete() {
-    await deleteMany.mutateAsync(ids, {
-      onSuccess: () => onOpenChange(false),
-    })
-  }
-
-  return (
-    <Dialog
-      open={open}
-      onOpenChange={(v) => {
-        onOpenChange(v)
-        if (!v) setConfirm("")
-      }}
-    >
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>
-            Remove {ids.length} hashtag{ids.length !== 1 ? "s" : ""}
-          </DialogTitle>
-          <DialogDescription>
-            This will remove the selected hashtags from the pool and trigger rebalancing across
-            all workers. Type{" "}
-            <span className="font-mono font-semibold text-foreground">DELETE</span> to confirm.
-          </DialogDescription>
-        </DialogHeader>
-        <Input placeholder="DELETE" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button
-            variant="destructive"
-            disabled={confirm !== "DELETE" || deleteMany.isPending}
-            onClick={handleDelete}
-          >
-            {deleteMany.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-            Remove {ids.length} hashtag{ids.length !== 1 ? "s" : ""}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-export function TiktokHashtagsManagement() {
+export function BeautyHashtagsManagement() {
   const [page, setPage] = useState(0)
-  const [deleteTarget, setDeleteTarget] = useState<TiktokHashtag | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<BeautyHashtag | null>(null)
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
+  const [searchInput, setSearchInput] = useState("")
+  const [search] = useDebounce(searchInput.trim(), 300)
 
-  const { data, isLoading, isError } = useTiktokHashtags({
+  const { data, isLoading, isError, isFetching } = useBeautyHashtags({
     limit: PAGE_SIZE,
     offset: page * PAGE_SIZE,
+    search: search || undefined,
   })
 
   const hashtags = data?.hashtags ?? []
@@ -120,7 +62,13 @@ export function TiktokHashtagsManagement() {
   const totalPages = Math.ceil(total / PAGE_SIZE)
   const selectedIds = Object.keys(rowSelection).filter((k) => rowSelection[k])
 
-  const columns = useMemo<ColumnDef<TiktokHashtag>[]>(
+  function handleSearchChange(value: string) {
+    setSearchInput(value)
+    setPage(0)
+    setRowSelection({})
+  }
+
+  const columns = useMemo<ColumnDef<BeautyHashtag>[]>(
     () => [
       {
         id: "select",
@@ -200,16 +148,40 @@ export function TiktokHashtagsManagement() {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between gap-2">
-        {selectedIds.length > 0 ? (
-          <Button variant="destructive" size="sm" onClick={() => setBulkDeleteOpen(true)}>
-            <Trash2 className="h-3.5 w-3.5" />
-            Delete {selectedIds.length} selected
-          </Button>
-        ) : (
-          <div />
-        )}
-        <AddHashtagDialog />
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <div className="relative w-full sm:w-72">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+            <Input
+              placeholder="Search hashtag or worker…"
+              className="pl-8 pr-8"
+              value={searchInput}
+              onChange={(e) => handleSearchChange(e.target.value)}
+            />
+            {searchInput && (
+              <button
+                type="button"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                onClick={() => handleSearchChange("")}
+                aria-label="Clear search"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+          {isFetching && !isLoading && (
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          )}
+        </div>
+        <div className="flex gap-2">
+          {selectedIds.length > 0 && (
+            <Button variant="destructive" size="sm" onClick={() => setBulkDeleteOpen(true)}>
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete {selectedIds.length} selected
+            </Button>
+          )}
+          <AddHashtagDialog />
+        </div>
       </div>
 
       <div className="rounded-md border">
@@ -246,7 +218,7 @@ export function TiktokHashtagsManagement() {
                   colSpan={columns.length}
                   className="h-32 text-center text-muted-foreground"
                 >
-                  No hashtags in the pool yet.
+                  {searchInput ? "No hashtags match your search." : "No hashtags in the pool yet."}
                 </TableCell>
               </TableRow>
             ) : (

@@ -8,19 +8,12 @@ import {
   type ColumnDef,
   type RowSelectionState,
 } from "@tanstack/react-table"
-import { ChevronLeft, ChevronRight, Loader2, Pencil, Trash2 } from "lucide-react"
+import { useDebounce } from "use-debounce"
+import { ChevronLeft, ChevronRight, Loader2, Pencil, Search, Trash2, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog"
 import {
   Table,
   TableBody,
@@ -30,12 +23,17 @@ import {
   TableRow,
 } from "@/components/ui/table"
 
-import type { TiktokJobRequest } from "../datahooks/useTiktokJobs"
-import { useTiktokJobs, useDeleteTiktokJobs } from "../datahooks/useTiktokJobs"
-import { SubmitJobSheet } from "./SubmitJobSheet"
-import { ImportCsvDialog } from "./ImportCsvDialog"
-import { EditJobDialog } from "./EditJobDialog"
-import { DeleteJobDialog } from "./DeleteJobDialog"
+import { SubmitJobSheet } from "@/app/(dashboard)/tiktok/jobs/components/SubmitJobSheet"
+import { ImportCsvDialog } from "@/app/(dashboard)/tiktok/jobs/components/ImportCsvDialog"
+import { EditJobDialog } from "@/app/(dashboard)/tiktok/jobs/components/EditJobDialog"
+import { DeleteJobDialog } from "@/app/(dashboard)/tiktok/jobs/components/DeleteJobDialog"
+import {
+  DeleteBulkDialog,
+  ExtrasDialog,
+} from "@/app/(dashboard)/tiktok/jobs/components/TiktokJobsManagement"
+
+import type { BeautyRequest } from "../datahooks/useBeautyRequests"
+import { useBeautyRequests } from "../datahooks/useBeautyRequests"
 
 const PAGE_SIZE = 20
 
@@ -49,112 +47,37 @@ function formatDate(date: string) {
   })
 }
 
-export function ExtrasDialog({
-  extras,
-  open,
-  onOpenChange,
-}: {
-  extras: Record<string, unknown> | null
-  open: boolean
-  onOpenChange: (open: boolean) => void
-}) {
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader>
-          <DialogTitle>Extras</DialogTitle>
-          <DialogDescription>Additional parameters for this job submission.</DialogDescription>
-        </DialogHeader>
-        {extras && Object.keys(extras).length > 0 ? (
-          <div className="rounded-md border divide-y">
-            {Object.entries(extras).map(([key, value]) => (
-              <div key={key} className="flex items-start gap-3 px-3 py-2">
-                <span className="text-sm font-medium shrink-0 w-32 truncate text-muted-foreground">
-                  {key}
-                </span>
-                <span className="text-sm break-all">
-                  {typeof value === "object" ? JSON.stringify(value) : String(value)}
-                </span>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">No extras.</p>
-        )}
-      </DialogContent>
-    </Dialog>
-  )
+function parseId(value: string) {
+  const n = parseInt(value, 10)
+  return Number.isNaN(n) ? undefined : n
 }
 
-export function DeleteBulkDialog({
-  ids,
-  open,
-  onOpenChange,
-}: {
-  ids: string[]
-  open: boolean
-  onOpenChange: (open: boolean) => void
-}) {
-  const [confirm, setConfirm] = useState("")
-  const deleteMany = useDeleteTiktokJobs()
-
-  async function handleDelete() {
-    await deleteMany.mutateAsync(ids)
-    onOpenChange(false)
-    setConfirm("")
-  }
-
-  return (
-    <Dialog
-      open={open}
-      onOpenChange={(v) => {
-        onOpenChange(v)
-        if (!v) setConfirm("")
-      }}
-    >
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>
-            Delete {ids.length} job{ids.length !== 1 ? "s" : ""}
-          </DialogTitle>
-          <DialogDescription>
-            This action cannot be undone. Type{" "}
-            <span className="font-mono font-semibold text-foreground">DELETE</span> to confirm.
-          </DialogDescription>
-        </DialogHeader>
-        <Input placeholder="DELETE" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button
-            variant="destructive"
-            disabled={confirm !== "DELETE" || deleteMany.isPending}
-            onClick={handleDelete}
-          >
-            {deleteMany.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-            Delete {ids.length} job{ids.length !== 1 ? "s" : ""}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-export function TiktokJobsManagement() {
+export function BeautyRequestsManagement() {
   const [page, setPage] = useState(0)
   const [extrasDialog, setExtrasDialog] = useState<{
     open: boolean
     extras: Record<string, unknown> | null
   }>({ open: false, extras: null })
-  const [editJob, setEditJob] = useState<TiktokJobRequest | null>(null)
-  const [deleteJob, setDeleteJob] = useState<TiktokJobRequest | null>(null)
+  const [editJob, setEditJob] = useState<BeautyRequest | null>(null)
+  const [deleteJob, setDeleteJob] = useState<BeautyRequest | null>(null)
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
 
-  const { data, isLoading, isError } = useTiktokJobs({
+  const [searchInput, setSearchInput] = useState("")
+  const [listenGroupInput, setListenGroupInput] = useState("")
+  const [requestDataInput, setRequestDataInput] = useState("")
+  const [search] = useDebounce(searchInput.trim(), 300)
+  const [listenGroupId] = useDebounce(parseId(listenGroupInput), 300)
+  const [requestDataId] = useDebounce(parseId(requestDataInput), 300)
+
+  const hasFilters = searchInput !== "" || listenGroupInput !== "" || requestDataInput !== ""
+
+  const { data, isLoading, isError, isFetching } = useBeautyRequests({
     limit: PAGE_SIZE,
     offset: page * PAGE_SIZE,
+    search: search || undefined,
+    listenGroupId,
+    requestDataId,
   })
 
   const requests = data?.requests ?? []
@@ -162,7 +85,19 @@ export function TiktokJobsManagement() {
   const totalPages = Math.ceil(total / PAGE_SIZE)
   const selectedIds = Object.keys(rowSelection).filter((k) => rowSelection[k])
 
-  const columns = useMemo<ColumnDef<TiktokJobRequest>[]>(
+  function resetPaging() {
+    setPage(0)
+    setRowSelection({})
+  }
+
+  function clearFilters() {
+    setSearchInput("")
+    setListenGroupInput("")
+    setRequestDataInput("")
+    resetPaging()
+  }
+
+  const columns = useMemo<ColumnDef<BeautyRequest>[]>(
     () => [
       {
         id: "select",
@@ -292,16 +227,72 @@ export function TiktokJobsManagement() {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between gap-2">
-        {selectedIds.length > 0 ? (
-          <Button variant="destructive" size="sm" onClick={() => setBulkDeleteOpen(true)}>
-            <Trash2 className="h-3.5 w-3.5" />
-            Delete {selectedIds.length} selected
-          </Button>
-        ) : (
-          <div />
-        )}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative w-full sm:w-72">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+            <Input
+              placeholder="Search project, hashtag or extras…"
+              className="pl-8 pr-8"
+              value={searchInput}
+              onChange={(e) => {
+                setSearchInput(e.target.value)
+                resetPaging()
+              }}
+            />
+            {searchInput && (
+              <button
+                type="button"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                onClick={() => {
+                  setSearchInput("")
+                  resetPaging()
+                }}
+                aria-label="Clear search"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+          <Input
+            type="number"
+            inputMode="numeric"
+            placeholder="ListenGroup ID"
+            className="w-36"
+            value={listenGroupInput}
+            onChange={(e) => {
+              setListenGroupInput(e.target.value)
+              resetPaging()
+            }}
+          />
+          <Input
+            type="number"
+            inputMode="numeric"
+            placeholder="Request Data ID"
+            className="w-36"
+            value={requestDataInput}
+            onChange={(e) => {
+              setRequestDataInput(e.target.value)
+              resetPaging()
+            }}
+          />
+          {hasFilters && (
+            <Button variant="ghost" size="sm" onClick={clearFilters}>
+              <X className="h-3.5 w-3.5" />
+              Clear
+            </Button>
+          )}
+          {isFetching && !isLoading && (
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          )}
+        </div>
         <div className="flex gap-2">
+          {selectedIds.length > 0 && (
+            <Button variant="destructive" size="sm" onClick={() => setBulkDeleteOpen(true)}>
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete {selectedIds.length} selected
+            </Button>
+          )}
           <ImportCsvDialog />
           <SubmitJobSheet />
         </div>
@@ -332,7 +323,7 @@ export function TiktokJobsManagement() {
             ) : isError ? (
               <TableRow>
                 <TableCell colSpan={columns.length} className="h-32 text-center text-destructive">
-                  Failed to load jobs.
+                  Failed to load requests.
                 </TableCell>
               </TableRow>
             ) : table.getRowModel().rows.length === 0 ? (
@@ -341,7 +332,7 @@ export function TiktokJobsManagement() {
                   colSpan={columns.length}
                   className="h-32 text-center text-muted-foreground"
                 >
-                  No jobs submitted yet.
+                  {hasFilters ? "No requests match your filters." : "No requests submitted yet."}
                 </TableCell>
               </TableRow>
             ) : (

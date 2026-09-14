@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { db } from "@/db/drizzle"
 import { tiktokJobHashtag, tiktokWorker, tiktokWorkerHashtagTask } from "@/db/tiktok-schema"
-import { asc, count, eq, inArray } from "drizzle-orm"
+import { and, asc, count, eq, ilike, inArray, or, type SQL } from "drizzle-orm"
 import { auth } from "@/lib/auth"
 import { z } from "zod"
 import { rebalance } from "@/lib/tiktok-rebalance"
@@ -22,29 +22,38 @@ export async function GET(req: NextRequest) {
   const limit = Math.min(parseInt(searchParams.get("limit") ?? "50"), 200)
   const offset = Math.max(parseInt(searchParams.get("offset") ?? "0"), 0)
   const workerId = searchParams.get("worker_id")
+  const search = searchParams.get("search")?.trim() ?? ""
 
-  const whereClause = workerId ? eq(tiktokWorker.id, workerId) : undefined
-
-  const baseQuery = db
-    .select({
-      id: tiktokJobHashtag.id,
-      hashtag: tiktokJobHashtag.hashtag,
-      createdAt: tiktokJobHashtag.createdAt,
-      workerName: tiktokWorker.name,
-      workerId: tiktokWorker.id,
-    })
-    .from(tiktokJobHashtag)
-    .leftJoin(tiktokWorkerHashtagTask, eq(tiktokJobHashtag.id, tiktokWorkerHashtagTask.hashtagId))
-    .leftJoin(tiktokWorker, eq(tiktokWorkerHashtagTask.workerId, tiktokWorker.id))
-    .$dynamic()
+  const filters: SQL[] = []
+  if (workerId) filters.push(eq(tiktokWorker.id, workerId))
+  if (search) {
+    const pattern = `%${search}%`
+    filters.push(or(ilike(tiktokJobHashtag.hashtag, pattern), ilike(tiktokWorker.name, pattern))!)
+  }
+  const whereClause = filters.length > 0 ? and(...filters) : undefined
 
   const [rows, [{ total }]] = await Promise.all([
-    baseQuery
+    db
+      .select({
+        id: tiktokJobHashtag.id,
+        hashtag: tiktokJobHashtag.hashtag,
+        createdAt: tiktokJobHashtag.createdAt,
+        workerName: tiktokWorker.name,
+        workerId: tiktokWorker.id,
+      })
+      .from(tiktokJobHashtag)
+      .leftJoin(tiktokWorkerHashtagTask, eq(tiktokJobHashtag.id, tiktokWorkerHashtagTask.hashtagId))
+      .leftJoin(tiktokWorker, eq(tiktokWorkerHashtagTask.workerId, tiktokWorker.id))
       .where(whereClause)
       .orderBy(asc(tiktokJobHashtag.createdAt))
       .limit(limit)
       .offset(offset),
-    db.select({ total: count() }).from(tiktokJobHashtag),
+    db
+      .select({ total: count() })
+      .from(tiktokJobHashtag)
+      .leftJoin(tiktokWorkerHashtagTask, eq(tiktokJobHashtag.id, tiktokWorkerHashtagTask.hashtagId))
+      .leftJoin(tiktokWorker, eq(tiktokWorkerHashtagTask.workerId, tiktokWorker.id))
+      .where(whereClause),
   ])
 
   return NextResponse.json({ hashtags: rows, total })
