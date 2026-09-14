@@ -6,7 +6,6 @@ import {
   getCoreRowModel,
   flexRender,
   type ColumnDef,
-  type Row,
   type RowSelectionState,
 } from "@tanstack/react-table"
 import { Check, ChevronLeft, ChevronRight, Copy, Loader2, Search, Trash2, X } from "lucide-react"
@@ -41,28 +40,6 @@ import type { BeautyVideo } from "../datahooks/useBeautyVideos"
 import { useBeautyVideos } from "../datahooks/useBeautyVideos"
 
 const PAGE_SIZE = 20
-
-function dayKey(date: string) {
-  const d = new Date(date)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
-}
-
-function dayLabel(date: string) {
-  const key = dayKey(date)
-  const today = new Date()
-  const yesterday = new Date(today)
-  yesterday.setDate(today.getDate() - 1)
-
-  const formatted = new Date(date).toLocaleDateString("en-US", {
-    weekday: "long",
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  })
-  if (key === dayKey(today.toISOString())) return `Today · ${formatted}`
-  if (key === dayKey(yesterday.toISOString())) return `Yesterday · ${formatted}`
-  return formatted
-}
 
 function CopyUrlButton({ url }: { url: string }) {
   const [copied, setCopied] = useState(false)
@@ -106,7 +83,6 @@ export function BeautyVideosTable({ hashtags }: { hashtags: string[] }) {
   const [deleteSingle, setDeleteSingle] = useState<BeautyVideo | null>(null)
   const [bulkOpen, setBulkOpen] = useState(false)
 
-  // API returns results ordered by createdAt desc, so day groups come out newest first.
   const { data, isLoading, isError } = useBeautyVideos({
     search,
     hashtag,
@@ -177,7 +153,10 @@ export function BeautyVideosTable({ hashtags }: { hashtags: string[] }) {
         header: "Collected",
         cell: ({ row }) => (
           <span className="text-sm text-muted-foreground whitespace-nowrap">
-            {new Date(row.original.createdAt).toLocaleTimeString("en-US", {
+            {new Date(row.original.createdAt).toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "short",
+              day: "numeric",
               hour: "2-digit",
               minute: "2-digit",
             })}
@@ -213,14 +192,6 @@ export function BeautyVideosTable({ hashtags }: { hashtags: string[] }) {
     enableRowSelection: true,
   })
 
-  const dayGroups: { key: string; label: string; rows: Row<BeautyVideo>[] }[] = []
-  for (const row of table.getRowModel().rows) {
-    const key = dayKey(row.original.createdAt)
-    const last = dayGroups[dayGroups.length - 1]
-    if (last?.key === key) last.rows.push(row)
-    else dayGroups.push({ key, label: dayLabel(row.original.createdAt), rows: [row] })
-  }
-
   function handleHashtagChange(val: string) {
     setHashtag(val === "_all" ? "" : val)
     setPage(0)
@@ -231,17 +202,6 @@ export function BeautyVideosTable({ hashtags }: { hashtags: string[] }) {
     setSearchInput(val)
     setPage(0)
     setRowSelection({})
-  }
-
-  function toggleDay(rows: Row<BeautyVideo>[], value: boolean) {
-    setRowSelection((prev) => {
-      const next = { ...prev }
-      for (const row of rows) {
-        if (value) next[row.id] = true
-        else delete next[row.id]
-      }
-      return next
-    })
   }
 
   let body: ReactNode
@@ -270,37 +230,15 @@ export function BeautyVideosTable({ hashtags }: { hashtags: string[] }) {
       </TableRow>
     )
   } else {
-    body = dayGroups.map((group) => {
-      const allSelected = group.rows.every((r) => r.getIsSelected())
-      return [
-        <TableRow key={`day-${group.key}`} className="bg-muted/50 hover:bg-muted/50">
-          <TableCell>
-            <Checkbox
-              checked={allSelected}
-              onCheckedChange={(v: boolean) => toggleDay(group.rows, v)}
-              aria-label={`Select all videos from ${group.label}`}
-            />
+    body = table.getRowModel().rows.map((row) => (
+      <TableRow key={row.id} data-state={row.getIsSelected() ? "selected" : undefined}>
+        {row.getVisibleCells().map((cell) => (
+          <TableCell key={cell.id}>
+            {flexRender(cell.column.columnDef.cell, cell.getContext())}
           </TableCell>
-          <TableCell colSpan={columns.length - 1}>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold">{group.label}</span>
-              <span className="text-xs text-muted-foreground">
-                {group.rows.length} video{group.rows.length !== 1 ? "s" : ""}
-              </span>
-            </div>
-          </TableCell>
-        </TableRow>,
-        ...group.rows.map((row) => (
-          <TableRow key={row.id} data-state={row.getIsSelected() ? "selected" : undefined}>
-            {row.getVisibleCells().map((cell) => (
-              <TableCell key={cell.id}>
-                {flexRender(cell.column.columnDef.cell, cell.getContext())}
-              </TableCell>
-            ))}
-          </TableRow>
-        )),
-      ]
-    })
+        ))}
+      </TableRow>
+    ))
   }
 
   return (

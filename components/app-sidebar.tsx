@@ -22,7 +22,14 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar"
 
-const NAV_GROUPS = [
+type NavGroup = {
+  label: string
+  // Hidden from the sidebar only — the pages stay reachable by URL
+  hidden?: boolean
+  items: { title: string; url: string; icon: React.ElementType }[]
+}
+
+const NAV_GROUPS: NavGroup[] = [
   {
     label: "Overview",
     items: [
@@ -37,6 +44,7 @@ const NAV_GROUPS = [
   },
   {
     label: "TikTok",
+    hidden: true,
     items: [
       { title: "Scrape Requests", url: "/tiktok/jobs", icon: FaTiktok },
       { title: "Mobile Workers", url: "/tiktok", icon: Smartphone },
@@ -69,6 +77,7 @@ const NAV_GROUPS = [
   },
   {
     label: "Phyllo",
+    hidden: true,
     items: [
       { title: "Scrape Requests", url: "/phyllo-scraper/requests", icon: Waypoints },
       { title: "Phyllo Jobs", url: "/phyllo-scraper/jobs", icon: FaSpider },
@@ -116,7 +125,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
 
       <SidebarContent>
-        {NAV_GROUPS.map((group) => (
+        {NAV_GROUPS.filter((group) => !group.hidden).map((group) => (
           <SidebarGroup key={group.label}>
             <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
             <SidebarMenu>
