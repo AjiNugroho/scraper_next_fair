@@ -38,6 +38,7 @@ import {
 
 import type { BeautyVideo } from "../datahooks/useBeautyVideos"
 import { useBeautyVideos } from "../datahooks/useBeautyVideos"
+import { DownloadBeautyVideosDialog } from "./DownloadBeautyVideosDialog"
 
 const PAGE_SIZE = 20
 
@@ -281,6 +282,10 @@ export function BeautyVideosTable({ hashtags }: { hashtags: string[] }) {
             Delete {selectedIds.length} selected
           </Button>
         )}
+
+        <div className="ml-auto">
+          <DownloadBeautyVideosDialog hashtags={hashtags} />
+        </div>
       </div>
 
       {/* Table */}

@@ -56,6 +56,12 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    label: "TikTok Shop",
+    items: [
+      { title: "Bulk Video Scrape", url: "/tiktok/bulk-scrape", icon: FileUp },
+    ],
+  },
+  {
     label: "TikTok Beauty",
     items: [
       { title: "Scrape Requests", url: "/tiktok-beauty-scraper/requests", icon: Sparkles },
