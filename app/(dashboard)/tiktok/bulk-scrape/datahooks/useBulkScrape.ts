@@ -31,6 +31,7 @@ export type BulkBatchItem = {
   statsShares: number | null
   statsSaves: number | null
   statsReposts: number | null
+  authorFollowers: number | null
   isTiktokShop: boolean
   productDetail: Record<string, unknown> | null
 }

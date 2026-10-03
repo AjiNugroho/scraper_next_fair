@@ -42,6 +42,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         statsShares: tiktokBulkVideoResult.statsShares,
         statsSaves: tiktokBulkVideoResult.statsSaves,
         statsReposts: tiktokBulkVideoResult.statsReposts,
+        authorFollowers: sql<number | null>`${tiktokBulkVideoResult.author} -> 'followers'`,
         isTiktokShop: sql<boolean>`${tiktokBulkVideoResult.product} IS NOT NULL`,
         productDetail: tiktokBulkVideoResult.product,
       })

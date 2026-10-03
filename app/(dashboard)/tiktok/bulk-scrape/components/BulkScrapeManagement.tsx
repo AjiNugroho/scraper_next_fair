@@ -87,8 +87,8 @@ async function fetchAllBatchItems(batchId: string): Promise<BulkBatchItem[]> {
 function triggerCsvDownload(items: BulkBatchItem[], fileName: string) {
   const headers = [
     "url", "status", "retry_count", "error",
-    "plays", "likes", "comments", "shares", "saves", "reposts", "is_tiktok_shop",
-    "product_detail", "created_at", "updated_at",
+    "plays", "likes", "comments", "shares", "saves", "reposts", "author_followers",
+    "is_tiktok_shop", "product_detail", "created_at", "updated_at",
   ]
   const rows = items.map((item) =>
     [
@@ -102,6 +102,7 @@ function triggerCsvDownload(items: BulkBatchItem[], fileName: string) {
       item.statsShares ?? "",
       item.statsSaves ?? "",
       item.statsReposts ?? "",
+      item.authorFollowers ?? "",
       item.isTiktokShop,
       item.productDetail ? JSON.stringify(item.productDetail) : "",
       item.createdAt,
