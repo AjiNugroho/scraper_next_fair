@@ -47,7 +47,13 @@ export async function POST(req: NextRequest) {
 
   const parsed = payloadSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ success: false, error: "Invalid payload" }, { status: 400 })
+    const detail = parsed.error.issues
+      .map((issue) => `${issue.path.join(".") || "(root)"}: ${issue.message}`)
+      .join("; ")
+    return NextResponse.json(
+      { success: false, error: `Invalid payload - ${detail}` },
+      { status: 400 },
+    )
   }
 
   const { request_id, status, data, error } = parsed.data
