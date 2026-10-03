@@ -91,6 +91,12 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    label: "Tester",
+    items: [
+      { title: "Phyllo Tester", url: "/phyllo-scraper/tester", icon: FlaskConical },
+    ],
+  },
+  {
     label: "Logs",
     items: [
       { title: "Request Log", url: "/request-log", icon: ScrollText },
