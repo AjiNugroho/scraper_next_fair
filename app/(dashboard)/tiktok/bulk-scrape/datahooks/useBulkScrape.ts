@@ -32,8 +32,14 @@ export type BulkBatchItem = {
   statsSaves: number | null
   statsReposts: number | null
   authorFollowers: number | null
+  authorUsername: string | null
+  description: string | null
+  datePosted: string | null
   isTiktokShop: boolean
   productDetail: Record<string, unknown> | null
+  // The hashtag uploaded with the URL. Fetching with `include=hashtag` (CSV
+  // download) also fills items that have none from the hashtag scraper's results.
+  hashtag: string | null
 }
 
 export type BulkBatchStatusCounts = {

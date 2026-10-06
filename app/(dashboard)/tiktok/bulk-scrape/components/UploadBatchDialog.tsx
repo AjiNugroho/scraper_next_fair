@@ -77,8 +77,9 @@ export function UploadBatchDialog() {
           <DialogHeader>
             <DialogTitle>Upload Bulk Scrape CSV</DialogTitle>
             <DialogDescription>
-              Upload a CSV file with a single &quot;url&quot; column. Large files are automatically
-              split into batches of 5,000 URLs. Start each batch manually when ready.
+              Upload a CSV file with a &quot;url&quot; column and an optional &quot;hashtag&quot;
+              column. Large files are automatically split into batches of 5,000 URLs. Start each
+              batch manually when ready.
             </DialogDescription>
           </DialogHeader>
 
@@ -119,7 +120,8 @@ export function UploadBatchDialog() {
                     <UploadCloud className="h-8 w-8 text-muted-foreground" />
                     <p className="text-sm text-muted-foreground">Click to select a CSV file</p>
                     <p className="text-xs text-muted-foreground">
-                      Must have a &quot;url&quot; column header · max 50,000 rows
+                      Columns: &quot;url&quot; (required), &quot;hashtag&quot; (optional) · max 50,000
+                      rows
                     </p>
                   </>
                 )}

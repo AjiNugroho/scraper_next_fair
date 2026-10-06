@@ -77,7 +77,7 @@ function formatEta(batch: BulkBatch): string | null {
 }
 
 async function fetchAllBatchItems(batchId: string): Promise<BulkBatchItem[]> {
-  const params = new URLSearchParams({ limit: "100000", offset: "0" })
+  const params = new URLSearchParams({ limit: "100000", offset: "0", include: "hashtag" })
   const res = await fetch(`/api/v1/internal/tiktok/bulk-batches/${batchId}?${params}`)
   if (!res.ok) throw new Error("Failed to fetch items for download")
   const data = await res.json()
@@ -89,6 +89,7 @@ function triggerCsvDownload(items: BulkBatchItem[], fileName: string) {
     "url", "status", "retry_count", "error",
     "plays", "likes", "comments", "shares", "saves", "reposts", "author_followers",
     "is_tiktok_shop", "product_detail", "created_at", "updated_at",
+    "hashtag", "creator_username", "content_type", "date_posted", "description",
   ]
   const rows = items.map((item) =>
     [
@@ -107,6 +108,11 @@ function triggerCsvDownload(items: BulkBatchItem[], fileName: string) {
       item.productDetail ? JSON.stringify(item.productDetail) : "",
       item.createdAt,
       item.updatedAt,
+      item.hashtag ?? "",
+      item.authorUsername ?? "",
+      "video",
+      item.datePosted ?? "",
+      item.description ?? "",
     ]
       .map((v) => `"${String(v).replace(/"/g, '""')}"`)
       .join(","),

@@ -1,0 +1,1 @@
+ALTER TABLE "tiktok_bulk_batch_item" ADD COLUMN "hashtag" text;

@@ -249,6 +249,7 @@ export const tiktokBulkBatchItem = pgTable(
       .notNull()
       .references(() => tiktokBulkBatch.id, { onDelete: "cascade" }),
     url: text("url").notNull(),
+    hashtag: text("hashtag"), // from the upload CSV's optional "hashtag" column
     status: text("status").notNull().default("pending"), // pending | running | success | failed
     retryCount: integer("retry_count").notNull().default(0),
     error: text("error"),
